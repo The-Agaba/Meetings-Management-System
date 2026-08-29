@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  AlertCircle, CalendarDays, CheckCircle2, ChevronRight, Clock3, Download,
+  AlertCircle, BellRing, CalendarDays, CheckCircle2, ChevronRight, Clock3, Download,
   FileUp, Loader2, LayoutDashboard, LogOut, MapPin, Plus,
-  QrCode, Send, Settings2, Users, X
+  QrCode, Send, Settings2, Users, X, XCircle
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Brand } from './ui.jsx';
 import { copy, api } from './utils.js';
 import LoginOtp from './LoginOtp.jsx';
+import Attendance from './Attendance.jsx';
 import { useToast } from './toast.jsx';
 
 /* ── Layout Shell ───────────────────────────────────────── */
@@ -255,10 +256,11 @@ function QrSection({ meetingId, t }) {
 
 /* ── CSV Import Section ─────────────────────────────────── */
 
-function CsvImport({ meetingId, onDone }) {
+function GuestImport({ meetingId, t, onDone }) {
   const toast = useToast();
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [skipped, setSkipped] = useState([]);
 
   const upload = async (e) => {
     e.preventDefault();
@@ -276,6 +278,7 @@ function CsvImport({ meetingId, onDone }) {
       if (!r.ok) throw Error(data.message || `Upload failed (${r.status})`);
       const skippedNote = data.skipped?.length ? `, ${data.skipped.length} row(s) skipped` : '';
       toast(`✓ Added ${data.added} guest${data.added !== 1 ? 's' : ''}${skippedNote}.`, 'success');
+      setSkipped(data.skipped || []);
       setFile(null);
       if (data.added > 0) onDone();
     } catch (err) {
@@ -286,17 +289,25 @@ function CsvImport({ meetingId, onDone }) {
   };
 
   return (
-    <form className="csv-import" onSubmit={upload}>
-      <FileUp size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />
-      <input
-        type="file"
-        accept=".csv,text/csv"
-        onChange={e => setFile(e.target.files[0])}
-      />
-      <button className="secondary" type="submit" disabled={!file || loading}>
-        {loading ? <Loader2 size={14} className="spinner" /> : 'Import CSV'}
-      </button>
-    </form>
+    <>
+      <form className="csv-import" onSubmit={upload}>
+        <FileUp size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />
+        <input
+          type="file"
+          accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+          onChange={e => setFile(e.target.files[0])}
+        />
+        <button className="secondary" type="submit" disabled={!file || loading}>
+          {loading ? <Loader2 size={14} className="spinner" /> : t.importGuests}
+        </button>
+      </form>
+      {skipped.length > 0 && (
+        <ul className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+          <li><strong>{t.skippedRows}:</strong></li>
+          {skipped.map(row => <li key={row.row}>Row {row.row}: {row.reason}</li>)}
+        </ul>
+      )}
+    </>
   );
 }
 
@@ -326,7 +337,8 @@ function DetailModal({ meetingId, t, onClose }) {
     </div>
   );
 
-  const readOnly = new Date(m.end_at) <= new Date();
+  const cancelled = m.status === 'cancelled';
+  const readOnly = new Date(m.end_at) <= new Date() || cancelled;
 
   const downloadReport = async () => {
     try {
@@ -355,6 +367,28 @@ function DetailModal({ meetingId, t, onClose }) {
       toast(err.message, 'error');
     } finally {
       setSendLoading(false);
+    }
+  };
+
+  const remind = async () => {
+    try {
+      const result = await api(`/api/meetings/${meetingId}/reminders`, { method: 'POST' });
+      await refresh();
+      toast(`${t.reminded} (${result.reminded})`, 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  };
+
+  const cancelMeeting = async () => {
+    const reason = window.prompt(t.cancelReason);
+    if (reason === null) return;
+    try {
+      await api(`/api/meetings/${meetingId}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) });
+      await refresh();
+      toast(t.cancelled, 'success');
+    } catch (err) {
+      toast(err.message, 'error');
     }
   };
 
@@ -387,13 +421,14 @@ function DetailModal({ meetingId, t, onClose }) {
         </div>
 
         {m.purpose && <p className="muted" style={{ marginBottom: 16 }}>{m.purpose}</p>}
-        {readOnly && <div className="notice">This meeting has ended. The record is available for viewing only.</div>}
+        {readOnly && <div className="notice">{cancelled ? t.cancelled : 'This meeting has ended. The record is available for viewing only.'}</div>}
 
         <div className="detail-stats">
           <Metric label="Confirmed" value={m.counts.confirmed} />
           <Metric label="Declined" value={m.counts.declined} />
           <Metric label="Tentative" value={m.counts.tentative} />
           <Metric label="No response" value={m.counts.no_response} />
+          <Metric label={t.checkedIn} value={m.counts.attended} />
         </div>
 
         <div className="modal-actions">
@@ -401,10 +436,14 @@ function DetailModal({ meetingId, t, onClose }) {
             <Download size={16} />{t.report}
           </button>
           {!readOnly && (
-            <button className="primary" onClick={sendInvites} disabled={sendLoading}>
-              {sendLoading ? <Loader2 size={16} className="spinner" /> : <Send size={16} />}
-              {t.send}
-            </button>
+            <>
+              <button className="primary" onClick={sendInvites} disabled={sendLoading}>
+                {sendLoading ? <Loader2 size={16} className="spinner" /> : <Send size={16} />}
+                {t.send}
+              </button>
+              <button className="secondary" onClick={remind}><BellRing size={16} />{t.remind}</button>
+              <button className="secondary" onClick={cancelMeeting}><XCircle size={16} />{t.cancelMeeting}</button>
+            </>
           )}
         </div>
 
@@ -421,6 +460,7 @@ function DetailModal({ meetingId, t, onClose }) {
                 <span className={`badge ${g.status === 'confirmed' ? 'green' : g.status === 'declined' ? 'grey' : 'gold'}`}>
                   {g.status}
                 </span>
+                <small className="muted">{t.delivery}: {g.delivery_status}{g.channel ? ` (${g.channel})` : ''} · {g.attended ? t.attended : t.notAttended}</small>
               </div>
             ))}
           </div>
@@ -444,11 +484,9 @@ function DetailModal({ meetingId, t, onClose }) {
         {/* CSV import */}
         {!readOnly && (
           <div style={{ marginTop: 14 }}>
-            <p className="section-label">Or import from CSV</p>
-            <p className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
-              CSV columns: <code>name</code>, <code>phone</code>, <code>email</code>, <code>organization</code>, <code>role_title</code>
-            </p>
-            <CsvImport meetingId={meetingId} onDone={refresh} />
+            <p className="section-label">{t.importGuests}</p>
+            <p className="muted" style={{ fontSize: 12, marginBottom: 8 }}>{t.importHint}</p>
+            <GuestImport meetingId={meetingId} t={t} onDone={refresh} />
           </div>
         )}
 
@@ -468,6 +506,7 @@ function Dashboard({ lang, user, view = 'dashboard' }) {
   const [show, setShow] = useState(false);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [trends, setTrends] = useState(null);
 
   const refresh = () => {
     setLoading(true);
@@ -477,6 +516,9 @@ function Dashboard({ lang, user, view = 'dashboard' }) {
       .finally(() => setLoading(false));
   };
   useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    if (user?.role === 'admin') api('/api/reports/summary').then(setTrends).catch(() => setTrends(null));
+  }, [user?.role]);
 
   const upcoming = meetings.filter(m => !m.past);
   const past = meetings.filter(m => m.past);
@@ -534,6 +576,24 @@ function Dashboard({ lang, user, view = 'dashboard' }) {
             </div>
           </div>
           <MeetingTable rows={past} t={t} onSelect={setSelected} />
+        </section>
+      )}
+
+      {!isMeetingsView && trends && (
+        <section className="panel">
+          <div className="panel-head">
+            <div>
+              <h2>{t.trends}</h2>
+              <p className="muted">Historical response and attendance across all council meetings</p>
+            </div>
+          </div>
+          <div className="metric-grid">
+            <Metric label={t.invited} value={trends.totals.invited} />
+            <Metric label="Confirmed" value={trends.totals.confirmed} />
+            <Metric label="Declined" value={trends.totals.declined} />
+            <Metric label="No response" value={trends.totals.no_response} />
+            <Metric label={t.checkedIn} value={trends.totals.checked_in} />
+          </div>
         </section>
       )}
 
@@ -709,6 +769,10 @@ export default function App() {
 
   if (location.pathname === '/rsvp.html') {
     return <Rsvp lang={lang} setLang={setLang} />;
+  }
+
+  if (location.pathname === '/attendance.html') {
+    return <Attendance lang={lang} setLang={setLang} />;
   }
 
   if (!localStorage.token && !user) {
