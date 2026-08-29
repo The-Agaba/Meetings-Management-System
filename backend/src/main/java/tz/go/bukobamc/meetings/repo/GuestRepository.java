@@ -1,0 +1,1 @@
+package tz.go.bukobamc.meetings.repo; import org.springframework.data.jpa.repository.JpaRepository; import tz.go.bukobamc.meetings.model.Guest; import java.util.*; public interface GuestRepository extends JpaRepository<Guest,Long>{List<Guest> findByMeetingId(Long id);long countByMeetingId(Long id);}

@@ -1,0 +1,1 @@
+package tz.go.bukobamc.meetings.repo; import org.springframework.data.jpa.repository.JpaRepository; import tz.go.bukobamc.meetings.model.*; import java.util.*; public interface QRSessionRepository extends JpaRepository<QRSession,Long>{Optional<QRSession> findBySessionTokenHash(String token);}

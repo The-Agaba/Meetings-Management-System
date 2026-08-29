@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: bmc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bmc_meetings
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+    ports:
+      - "5432:5432"
+    volumes:
+      - bmc_postgres_data:/var/lib/postgresql/data
+volumes:
+  bmc_postgres_data:

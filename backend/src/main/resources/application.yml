@@ -1,0 +1,39 @@
+server:
+  port: ${PORT:8000}
+spring:
+  config:
+    import: optional:file:.env[.properties],optional:file:../.env[.properties]
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/bmc_meetings}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:1234}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  mail:
+    host: ${SMTP_HOST:smtp.gmail.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${SMTP_STARTTLS:true}
+bmc:
+  public-base-url: ${PUBLIC_BASE_URL:http://127.0.0.1:8000}
+  admin-email: ${ADMIN_EMAIL:admin@bukobamc.go.tz}
+  admin-password: ${ADMIN_PASSWORD:admin123}
+  default-whatsapp-sender: ${WHATSAPP_DEFAULT_SENDER:0757219157}
+  default-email-sender: ${SMTP_FROM:theagaba.dev@gmail.com}
+  whatsapp-enabled: ${WHATSAPP_ENABLED:false}
+  otp-expiry-minutes: ${OTP_EXPIRY_MINUTES:10}
+  qr-rotation-seconds: ${QR_ROTATION_SECONDS:45}
+logging:
+  level:
+    root: INFO
+    tz.go.bukobamc.meetings: INFO
+    org.springframework.web: INFO

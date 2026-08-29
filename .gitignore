@@ -1,0 +1,8 @@
+.env
+backend/target/
+backend/.mvn/
+*.log
+*.db
+node_modules/
+frontend/dist/
+.pnpm-store/

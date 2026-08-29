@@ -1,0 +1,7 @@
+:root{--black:#101614}
+.brandbar{border-top:5px solid transparent;border-image:linear-gradient(90deg,var(--green) 0 34%,var(--gold) 34% 46%,var(--black) 46% 57%,var(--gold) 57% 69%,var(--sky) 69% 100%) 1}
+.panel-head{border-top:2px solid var(--gold)}
+.auth-link{display:flex;align-items:center;justify-content:center;gap:4px;margin-top:18px;color:var(--green);font-size:13px;font-weight:750;text-decoration:none}
+.auth-link:hover{text-decoration:underline}
+.input-wrap input{flex:1;min-width:0;width:100%}
+.otp-field{display:grid;gap:8px}.otp-label{font-size:12px;color:#435148;font-weight:750}.otp-boxes{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.otp-boxes input{width:100%;height:48px;padding:0;text-align:center;font-size:21px;font-weight:800;text-transform:uppercase}.otp-resend{margin-top:7px;font-size:12px}@media(max-width:420px){.otp-boxes{gap:5px}.otp-boxes input{height:44px;font-size:18px}}

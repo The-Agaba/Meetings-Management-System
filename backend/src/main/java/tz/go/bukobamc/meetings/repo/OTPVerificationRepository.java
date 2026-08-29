@@ -1,0 +1,1 @@
+package tz.go.bukobamc.meetings.repo; import org.springframework.data.jpa.repository.JpaRepository; import tz.go.bukobamc.meetings.model.*; import java.util.*; public interface OTPVerificationRepository extends JpaRepository<OTPVerification,Long>{Optional<OTPVerification> findTopByUserIdAndChannelAndUsedFalseOrderByIdDesc(Long userId,String channel);void deleteByUserId(Long id);}

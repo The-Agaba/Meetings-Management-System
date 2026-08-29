@@ -1,0 +1,1 @@
+package tz.go.bukobamc.meetings.repo; import org.springframework.data.jpa.repository.JpaRepository; import tz.go.bukobamc.meetings.model.Meeting; public interface MeetingRepository extends JpaRepository<Meeting,Long>{}

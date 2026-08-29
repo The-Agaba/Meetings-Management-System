@@ -1,0 +1,4 @@
+import coat from '../assets/official/tanzania-coat-of-arms.svg'; import bmcLogo from '../assets/official/bukoba-municipal-council-logo.svg';
+import { copy } from './utils.js';
+
+export function Brand({lang,setLang}){return <header className="brandbar"><div className="brand-inner"><div className="emblem-frame"><img src={coat} alt="National Coat of Arms of Tanzania"/></div><div className="council-mark"><img src={bmcLogo} alt="Bukoba Municipal Council logo"/></div><div className="brand-copy"><div className="eyebrow">KAGERA REGION • TANZANIA</div><strong>BUKOBA MUNICIPAL COUNCIL</strong><span>{copy[lang].app}</span></div><div className="brand-actions"><button className="language" onClick={()=>{const n=lang==='en'?'sw':'en';localStorage.lang=n;setLang(n)}}>◉ {lang==='en'?'EN':'SW'} <span className="language-muted">| {lang==='en'?'SW':'EN'}</span></button></div></div></header>}

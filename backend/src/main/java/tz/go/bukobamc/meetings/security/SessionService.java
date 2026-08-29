@@ -1,0 +1,3 @@
+package tz.go.bukobamc.meetings.security;
+import org.springframework.http.HttpStatus; import org.springframework.stereotype.Service; import org.springframework.web.server.ResponseStatusException; import tz.go.bukobamc.meetings.model.User; import java.util.*; import java.util.concurrent.ConcurrentHashMap;
+@Service public class SessionService { private final Map<String,User> sessions=new ConcurrentHashMap<>(); public String create(User u){String t=UUID.randomUUID().toString();sessions.put(t,u);return t;} public User require(String h){if(h==null||!h.startsWith("Bearer ")||!sessions.containsKey(h.substring(7))) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Session expired. Please sign in again."); return sessions.get(h.substring(7));} }
