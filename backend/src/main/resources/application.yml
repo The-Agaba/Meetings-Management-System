@@ -32,6 +32,8 @@ bmc:
   whatsapp-enabled: ${WHATSAPP_ENABLED:false}
   otp-expiry-minutes: ${OTP_EXPIRY_MINUTES:10}
   qr-rotation-seconds: ${QR_ROTATION_SECONDS:45}
+  session-days: ${SESSION_DAYS:7}
+  pending-registration-hours: ${PENDING_REGISTRATION_HOURS:24}
 logging:
   level:
     root: INFO

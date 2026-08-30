@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Clock, Mail, Phone, ShieldCheck, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Mail, Phone, ShieldCheck, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Brand } from './ui.jsx';
 import { copy, api } from './utils.js';
 import OtpBoxes from './OtpBoxes.jsx';
@@ -47,7 +47,6 @@ export default function Register({ lang, setLang }) {
   const [stage, setStage] = useState('details');
   const [codes, setCodes] = useState({ email: '', whatsapp: '' });
   const [whatsapp, setWhatsapp] = useState(false);
-  const [error, setError] = useState('');
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -73,19 +72,17 @@ export default function Register({ lang, setLang }) {
 
   useEffect(() => () => Object.values(timerRef.current).forEach(clearInterval), []);
 
+  // Skip registration if already signed in.
   useEffect(() => {
-    if (!error) return;
-    const id = setTimeout(() => setError(''), 6000);
-    return () => clearTimeout(id);
-  }, [error]);
+    if (localStorage.token) location.replace('/');
+  }, []);
 
   /* ── Submit ──────────────────────────────────────────── */
   const submit = async (e) => {
     e.preventDefault();
-    setError('');
     if (stage === 'details' && form.password !== form.confirmPassword) {
       const msg = lang === 'en' ? 'Passwords do not match' : 'Manenosiri hayalingani';
-      setError(msg); toast(msg, 'error'); return;
+      toast(msg, 'error'); return;
     }
     setLoading(true);
     try {
@@ -104,11 +101,9 @@ export default function Register({ lang, setLang }) {
       } else {
         await api('/api/auth/verify', { method: 'POST', body: JSON.stringify({ email: form.email, channel: 'email', code: codes.email }) });
         if (whatsapp) await api('/api/auth/verify', { method: 'POST', body: JSON.stringify({ email: form.email, channel: 'phone', code: codes.whatsapp }) });
-        toast(lang === 'en' ? 'Account verified! You can now sign in.' : 'Akaunti imethibitishwa! Sasa unaweza kuingia.', 'success', 6000);
         setDone(true);
       }
     } catch (err) {
-      setError(err.message);
       toast(err.message, 'error');
     } finally {
       setLoading(false);
@@ -140,14 +135,13 @@ export default function Register({ lang, setLang }) {
     <>
       <Brand lang={lang} setLang={setLang} />
       <main className="auth-shell">
-        <div className={`toast-error ${error ? 'show' : ''}`}><AlertCircle size={20} /><span>{error}</span></div>
         <section className="auth-card">
           <div className="auth-kicker"><ShieldCheck size={16} /> SECURE STAFF REGISTRATION</div>
           <h1>{done ? t.verifyOtp : t.register}</h1>
           {done ? (
             <>
               <p className="success">{lang === 'en' ? 'Account verified. You can now sign in.' : 'Akaunti imethibitishwa. Sasa unaweza kuingia.'}</p>
-              <a className="primary full button-link" href="/">{t.backToSignIn}<ChevronRight size={17} /></a>
+              <a className="primary full button-link" href="/" onClick={e => { e.preventDefault(); location.replace('/'); }}>{t.backToSignIn}<ChevronRight size={17} /></a>
             </>
           ) : (
             <>
@@ -218,7 +212,7 @@ export default function Register({ lang, setLang }) {
                   {!loading && <ChevronRight size={17} />}
                 </button>
               </form>
-              <a className="auth-link" href="/"><ChevronLeft size={14} />{t.backToSignIn}</a>
+              <a className="auth-link" href="/" onClick={e => { e.preventDefault(); location.replace('/'); }}><ChevronLeft size={14} />{t.backToSignIn}</a>
             </>
           )}
         </section>

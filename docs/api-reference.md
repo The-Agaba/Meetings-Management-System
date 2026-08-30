@@ -1,23 +1,68 @@
 # API Reference
 
-Base URL: `/api`. Staff routes require `Authorization: Bearer <session token>`.
+Base URL: `/api`. Staff routes require `Authorization: Bearer <session token>` unless noted.
+
+Errors return JSON: `{ "error": "...", "message": "...", "status": 401 }`.
+
+## Health & auth
 
 | Method | Path | Purpose | Auth |
 |---|---|---|---|
 | GET | `/health` | Service health | None |
-| POST | `/auth/login` | Create staff session, body `{email,password}` | None |
-| GET | `/me` | Current user | Staff |
-| PUT | `/me` | Update organiser name and phone used for WhatsApp sender selection, body `{name,phone}` | Staff |
-| GET | `/meetings` | List authorised meetings | Staff |
-| POST | `/meetings` | Create meeting | Staff |
-| GET | `/meetings/{id}` | Meeting, guests, RSVP counts | Staff |
-| POST | `/meetings/{id}/guests` | Add guest | Staff |
-| POST | `/meetings/{id}/guests/import` | Upload UTF-8 CSV | Staff, multipart `file` |
-| POST | `/meetings/{id}/send-invites` | Create and dispatch invitations | Staff |
-| PUT | `/meetings/{id}` | Edit a future meeting | Organiser or Admin |
-| GET | `/rsvp/{token}` | Public meeting details | Token |
-| POST | `/rsvp/{token}` | Body `{status,reason,language}` | Token |
-| GET | `/rsvp/{token}/calendar.ics` | Universal calendar file for Google, Outlook, Apple Calendar, and other apps | Token |
-| GET | `/meetings/{id}/report.csv` | Attendance CSV export | Staff |
+| POST | `/auth/register` | Register organiser `{name,email,phone,password}` | None |
+| POST | `/auth/verify` | Verify registration OTP `{email,channel,code}` | None |
+| POST | `/auth/resend` | Resend registration OTP `{email,channel}` | None |
+| GET | `/auth/config` | `{whatsapp_enabled}` | None |
+| POST | `/auth/login` | Password login → `{access_token,user}` | None |
+| POST | `/auth/logout` | Revoke current session | Bearer |
+| POST | `/auth/password-reset/request` | Send reset OTP `{email}` | None |
+| POST | `/auth/password-reset/confirm` | Reset password `{email,code,password}` | None |
 
-Successful meeting creation returns `{id,reference}`. RSVP returns `{status:"saved",message}`. Errors use `{detail}` with HTTP 4xx status. The backend is Spring Boot 3 with PostgreSQL persistence.
+## Profile
+
+| Method | Path | Purpose | Auth |
+|---|---|---|---|
+| GET | `/me` | Current user profile | Bearer |
+| PUT | `/me` | Update `{name,phone}` | Bearer |
+| POST | `/me/email-change/request` | OTP to new email `{email}` | Bearer |
+| POST | `/me/email-change/verify` | Confirm email change `{email,code}` | Bearer |
+| POST | `/me/password-change` | Change password `{current_password,new_password}` | Bearer |
+
+## Meetings
+
+| Method | Path | Purpose | Auth |
+|---|---|---|---|
+| GET | `/meetings` | List meetings | Bearer |
+| POST | `/meetings` | Create meeting | Bearer |
+| GET | `/meetings/{id}` | Meeting detail, guests, counts | Bearer |
+| PUT | `/meetings/{id}` | Edit future meeting (organiser owner) | Bearer |
+| POST | `/meetings/{id}/guests` | Add guest | Bearer |
+| POST | `/meetings/{id}/guests/import` | Import CSV or XLSX (`file` multipart) | Bearer |
+| POST | `/meetings/{id}/send-invites` | Send invitations | Bearer |
+| GET | `/meetings/{id}/attendance/qr` | Session attendance QR | Bearer |
+| GET | `/meetings/{id}/report.csv` | Attendance CSV export | Bearer |
+
+Guest import columns: `name`, `phone`, `email`, `organization`, `role_title`.
+
+## Public
+
+| Method | Path | Purpose | Auth |
+|---|---|---|---|
+| GET | `/rsvp/{token}` | RSVP page data | Token |
+| POST | `/rsvp/{token}` | Submit RSVP `{status,reason,language}` | Token |
+| GET | `/attendance/{token}` | Personal check-in page | Token |
+| POST | `/attendance/sign-in` | QR check-in `{personal_token,qr_payload}` | Token |
+
+## Admin
+
+| Method | Path | Purpose | Auth |
+|---|---|---|---|
+| GET | `/admin/accounts` | List accounts | Admin |
+| PUT | `/admin/accounts/{id}` | Update `{role,active}` | Admin |
+| GET | `/admin/audit-logs` | Recent audit events | Admin |
+
+## Security notes
+
+- Staff sessions are stored in PostgreSQL (`staff_sessions`) and expire after `SESSION_DAYS` (default 7).
+- Passwords use BCrypt (legacy SHA-256 hashes are upgraded on login).
+- OTP attempts are limited to 5 per code; pending registrations expire after 24 hours.

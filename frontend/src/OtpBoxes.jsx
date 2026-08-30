@@ -1,2 +1,44 @@
-import React,{useRef} from 'react';
-export default function OtpBoxes({value,onChange,label}){const refs=useRef([]);const chars=(value||'').toUpperCase().slice(0,6).split('');while(chars.length<6)chars.push('');const update=(index,next)=>{const clean=next.replace(/[^A-Z0-9]/gi,'').toUpperCase();const nextChars=[...chars];if(clean.length>1){clean.slice(0,6).split('').forEach((c,i)=>{nextChars[index+i]=c});onChange(nextChars.join('').slice(0,6));refs.current[Math.min(index+clean.length,5)]?.focus();return}nextChars[index]=clean;onChange(nextChars.join('').slice(0,6));if(clean&&index<5)refs.current[index+1]?.focus()};return <div className="otp-field"><span className="otp-label">{label}</span><div className="otp-boxes" role="group" aria-label={label}>{chars.map((c,i)=><input key={i} ref={el=>refs.current[i]=el} value={c} maxLength="1" autoComplete={i===0?'one-time-code':'off'} inputMode="text" aria-label={`${label} ${i+1}`} onChange={e=>update(i,e.target.value)} onKeyDown={e=>{if(e.key==='Backspace'&&!chars[i]&&i>0)refs.current[i-1]?.focus()}} onPaste={e=>{e.preventDefault();update(i,e.clipboardData.getData('text'))}} required/>)}</div></div>}
+import React, { useRef } from 'react';
+
+export default function OtpBoxes({ value, onChange, label, numeric = false }) {
+  const refs = useRef([]);
+  const chars = (numeric ? (value || '').slice(0, 6) : (value || '').toUpperCase().slice(0, 6)).split('');
+  while (chars.length < 6) chars.push('');
+
+  const update = (index, next) => {
+    const clean = (numeric ? next.replace(/[^0-9]/g, '') : next.replace(/[^A-Z0-9]/gi, '').toUpperCase());
+    const nextChars = [...chars];
+    if (clean.length > 1) {
+      clean.slice(0, 6).split('').forEach((c, i) => { nextChars[index + i] = c; });
+      onChange(nextChars.join('').slice(0, 6));
+      refs.current[Math.min(index + clean.length, 5)]?.focus();
+      return;
+    }
+    nextChars[index] = clean;
+    onChange(nextChars.join('').slice(0, 6));
+    if (clean && index < 5) refs.current[index + 1]?.focus();
+  };
+
+  return (
+    <div className="otp-field">
+      <span className="otp-label">{label}</span>
+      <div className="otp-boxes" role="group" aria-label={label}>
+        {chars.map((c, i) => (
+          <input
+            key={i}
+            ref={el => { refs.current[i] = el; }}
+            value={c}
+            maxLength="1"
+            autoComplete={i === 0 ? 'one-time-code' : 'off'}
+            inputMode={numeric ? 'numeric' : 'text'}
+            aria-label={`${label} ${i + 1}`}
+            onChange={e => update(i, e.target.value)}
+            onKeyDown={e => { if (e.key === 'Backspace' && !chars[i] && i > 0) refs.current[i - 1]?.focus(); }}
+            onPaste={e => { e.preventDefault(); update(i, e.clipboardData.getData('text')); }}
+            required
+          />
+        ))}
+      </div>
+    </div>
+  );
+}

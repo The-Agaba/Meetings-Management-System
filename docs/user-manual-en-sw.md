@@ -2,7 +2,7 @@
 
 ## Organizer registration and attendance verification
 
-An Organizer registers with name, email, WhatsApp number, and password. The account remains `pending` until the separate email OTP and WhatsApp OTP are entered. Each OTP is valid for 10 minutes; resend is limited to one per 60 seconds and five per 30 minutes. After both are verified, the account becomes `active`.
+An Organizer registers with name, email, WhatsApp number, and password. The account remains `pending` until email OTP (and WhatsApp OTP when enabled) are entered once. Staff then sign in with email and password only — no login OTP. Password reset uses a one-time email code from the sign-in page. Pending registrations that are not verified within 24 hours are removed automatically.
 
 For physical attendance, the Organizer opens Live Attendance for their own meeting and displays the rotating Session QR Code. The QR is never sent in a notification. A Participant opens their Personal Sign-In Link from WhatsApp or email, allows camera access, and scans the live Session QR Code. A successful scan records Attended with the server timestamp; reopening a used link shows that attendance is already recorded.
 

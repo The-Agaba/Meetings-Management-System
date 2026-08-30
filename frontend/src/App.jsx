@@ -8,6 +8,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Brand } from './ui.jsx';
 import { copy, api } from './utils.js';
 import LoginOtp from './LoginOtp.jsx';
+import OtpBoxes from './OtpBoxes.jsx';
+import OfflineBanner from './OfflineBanner.jsx';
 import { useToast } from './toast.jsx';
 
 /* ── Layout Shell ───────────────────────────────────────── */
@@ -18,7 +20,7 @@ function Shell({ lang, setLang, user, onLogout, children, onAccount, view, onNav
     <>
       <Brand lang={lang} setLang={setLang} />
       <div className="app-shell">
-        <aside className="sidebar">
+        <aside className="sidebar" aria-label="Main navigation">
           <div className="side-label">MAIN MENU</div>
           <button
             className={`side-link ${view === 'dashboard' ? 'active' : ''}`}
@@ -53,6 +55,36 @@ function Shell({ lang, setLang, user, onLogout, children, onAccount, view, onNav
         </aside>
         <main className="content">{children}</main>
       </div>
+      <nav className="mobile-nav" aria-label="Mobile navigation">
+        <button
+          type="button"
+          className={`mobile-nav-link ${view === 'dashboard' ? 'active' : ''}`}
+          onClick={() => onNavigate('dashboard')}
+        >
+          <LayoutDashboard size={20} />
+          <span>{t.dashboard}</span>
+        </button>
+        <button
+          type="button"
+          className={`mobile-nav-link ${view === 'meetings' ? 'active' : ''}`}
+          onClick={() => onNavigate('meetings')}
+        >
+          <CalendarDays size={20} />
+          <span>{t.meetings}</span>
+        </button>
+        <button
+          type="button"
+          className={`mobile-nav-link ${view === 'account' ? 'active' : ''}`}
+          onClick={() => onAccount()}
+        >
+          <Settings2 size={20} />
+          <span>{t.account}</span>
+        </button>
+        <button type="button" className="mobile-nav-link" onClick={onLogout}>
+          <LogOut size={20} />
+          <span>{t.signOut}</span>
+        </button>
+      </nav>
     </>
   );
 }
@@ -125,14 +157,26 @@ function MeetingTable({ rows, t, onSelect }) {
   );
 }
 
-/* ── Create Meeting Modal ───────────────────────────────── */
+/* ── Create / Edit Meeting Modal ───────────────────────── */
 
-function MeetingModal({ t, onClose, onSaved }) {
+function toLocalInput(iso) {
+  if (!iso) return '';
+  return new Date(iso).toISOString().slice(0, 16);
+}
+
+function MeetingModal({ t, meeting, onClose, onSaved }) {
   const toast = useToast();
+  const isEdit = !!meeting;
   const [form, setForm] = useState({
-    title: '', purpose: '', start_at: '', end_at: '', location: '',
-    department: 'Bukoba Municipal Council', meeting_type: 'internal',
-    priority: 'normal', status: 'draft'
+    title: meeting?.title || '',
+    purpose: meeting?.purpose || '',
+    start_at: toLocalInput(meeting?.start_at),
+    end_at: toLocalInput(meeting?.end_at),
+    location: meeting?.location || '',
+    department: meeting?.department || 'Bukoba Municipal Council',
+    meeting_type: meeting?.meeting_type || 'internal',
+    priority: meeting?.priority || 'normal',
+    status: meeting?.status || 'draft'
   });
   const [loading, setLoading] = useState(false);
   const minDateTime = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
@@ -143,15 +187,18 @@ function MeetingModal({ t, onClose, onSaved }) {
     e.preventDefault();
     const start = new Date(form.start_at);
     const end = new Date(form.end_at);
-    if (start <= new Date()) { toast('Meeting start must be in the future.', 'error'); return; }
+    if (!isEdit && start <= new Date()) { toast('Meeting start must be in the future.', 'error'); return; }
     if (end <= start) { toast('Meeting end must be after the start time.', 'error'); return; }
     setLoading(true);
     try {
-      await api('/api/meetings', {
-        method: 'POST',
-        body: JSON.stringify({ ...form, start_at: start.toISOString(), end_at: end.toISOString() })
-      });
-      toast('Meeting created successfully.', 'success');
+      const payload = { ...form, start_at: start.toISOString(), end_at: end.toISOString() };
+      if (isEdit) {
+        await api(`/api/meetings/${meeting.id}`, { method: 'PUT', body: JSON.stringify(payload) });
+        toast('Meeting updated successfully.', 'success');
+      } else {
+        await api('/api/meetings', { method: 'POST', body: JSON.stringify(payload) });
+        toast('Meeting created successfully.', 'success');
+      }
       onSaved();
     } catch (err) {
       toast(err.message, 'error');
@@ -165,8 +212,8 @@ function MeetingModal({ t, onClose, onSaved }) {
       <section className="modal">
         <div className="modal-head">
           <div>
-            <div className="eyebrow green">NEW RECORD</div>
-            <h2>{t.create}</h2>
+            <div className="eyebrow green">{isEdit ? 'EDIT RECORD' : 'NEW RECORD'}</div>
+            <h2>{isEdit ? 'Edit meeting' : t.create}</h2>
           </div>
           <button className="icon-button" onClick={onClose}><X /></button>
         </div>
@@ -174,15 +221,17 @@ function MeetingModal({ t, onClose, onSaved }) {
           <div className="form-grid">
             <label>{t.title}<input value={form.title} onChange={e => update('title', e.target.value)} required /></label>
             <label>{t.department}<input value={form.department} onChange={e => update('department', e.target.value)} required /></label>
-            <label>{t.start}<input type="datetime-local" min={minDateTime} value={form.start_at} onChange={e => update('start_at', e.target.value)} required /></label>
+            <label>{t.start}<input type="datetime-local" min={isEdit ? undefined : minDateTime} value={form.start_at} onChange={e => update('start_at', e.target.value)} required /></label>
             <label>{t.end}<input type="datetime-local" min={form.start_at || minDateTime} value={form.end_at} onChange={e => update('end_at', e.target.value)} required /></label>
             <label className="span-2">{t.location}<input value={form.location} onChange={e => update('location', e.target.value)} /></label>
+            <label>{t.status}<select value={form.status} onChange={e => update('status', e.target.value)}><option value="draft">Draft</option><option value="published">Published</option></select></label>
+            <label>Priority<select value={form.priority} onChange={e => update('priority', e.target.value)}><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></label>
             <label className="span-2">{t.purpose}<textarea value={form.purpose} onChange={e => update('purpose', e.target.value)} /></label>
           </div>
           <div className="modal-actions">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
             <button className="primary" disabled={loading}>
-              {loading ? <Loader2 size={16} className="spinner" /> : <>{t.save}<ChevronRight size={16} /></>}
+              {loading ? <Loader2 size={16} className="spinner" /> : <>{isEdit ? 'Save changes' : t.save}<ChevronRight size={16} /></>}
             </button>
           </div>
         </form>
@@ -273,7 +322,7 @@ function CsvImport({ meetingId, onDone }) {
         body
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw Error(data.message || `Upload failed (${r.status})`);
+      if (!r.ok) throw Error(data.message || data.error || `Upload failed (${r.status})`);
       const skippedNote = data.skipped?.length ? `, ${data.skipped.length} row(s) skipped` : '';
       toast(`✓ Added ${data.added} guest${data.added !== 1 ? 's' : ''}${skippedNote}.`, 'success');
       setFile(null);
@@ -290,11 +339,11 @@ function CsvImport({ meetingId, onDone }) {
       <FileUp size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />
       <input
         type="file"
-        accept=".csv,text/csv"
+        accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         onChange={e => setFile(e.target.files[0])}
       />
       <button className="secondary" type="submit" disabled={!file || loading}>
-        {loading ? <Loader2 size={14} className="spinner" /> : 'Import CSV'}
+        {loading ? <Loader2 size={14} className="spinner" /> : 'Import CSV / XLSX'}
       </button>
     </form>
   );
@@ -308,6 +357,7 @@ function DetailModal({ meetingId, t, onClose }) {
   const [loadError, setLoadError] = useState('');
   const [guestForm, setGuestForm] = useState({ name: '', phone: '', email: '', organization: '', role_title: '' });
   const [sendLoading, setSendLoading] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const refresh = () => api('/api/meetings/' + meetingId).then(setM).catch(err => setLoadError(err.message));
   useEffect(() => { refresh(); }, [meetingId]);
@@ -327,6 +377,17 @@ function DetailModal({ meetingId, t, onClose }) {
   );
 
   const readOnly = new Date(m.end_at) <= new Date();
+
+  if (editing) {
+    return (
+      <MeetingModal
+        t={t}
+        meeting={m}
+        onClose={() => setEditing(false)}
+        onSaved={() => { setEditing(false); refresh(); }}
+      />
+    );
+  }
 
   const downloadReport = async () => {
     try {
@@ -390,16 +451,21 @@ function DetailModal({ meetingId, t, onClose }) {
         {readOnly && <div className="notice">This meeting has ended. The record is available for viewing only.</div>}
 
         <div className="detail-stats">
-          <Metric label="Confirmed" value={m.counts.confirmed} />
-          <Metric label="Declined" value={m.counts.declined} />
-          <Metric label="Tentative" value={m.counts.tentative} />
-          <Metric label="No response" value={m.counts.no_response} />
+          <Metric label="Confirmed" value={m.counts?.confirmed || 0} />
+          <Metric label="Declined" value={m.counts?.declined || 0} />
+          <Metric label="Tentative" value={m.counts?.tentative || 0} />
+          <Metric label="No response" value={m.counts?.no_response || 0} />
         </div>
 
         <div className="modal-actions">
           <button className="secondary" onClick={downloadReport}>
             <Download size={16} />{t.report}
           </button>
+          {!readOnly && (
+            <button className="secondary" onClick={() => setEditing(true)}>
+              <Settings2 size={16} /> Edit meeting
+            </button>
+          )}
           {!readOnly && (
             <button className="primary" onClick={sendInvites} disabled={sendLoading}>
               {sendLoading ? <Loader2 size={16} className="spinner" /> : <Send size={16} />}
@@ -446,7 +512,7 @@ function DetailModal({ meetingId, t, onClose }) {
           <div style={{ marginTop: 14 }}>
             <p className="section-label">Or import from CSV</p>
             <p className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
-              CSV columns: <code>name</code>, <code>phone</code>, <code>email</code>, <code>organization</code>, <code>role_title</code>
+              Columns: <code>name</code>, <code>phone</code>, <code>email</code>, <code>organization</code>, <code>role_title</code> (CSV or XLSX)
             </p>
             <CsvImport meetingId={meetingId} onDone={refresh} />
           </div>
@@ -545,17 +611,41 @@ function Dashboard({ lang, user, view = 'dashboard' }) {
 
 /* ── Account Settings ───────────────────────────────────── */
 
-function Account({ lang, user, onBack }) {
+function Account({ lang, user, onBack, onUpdated }) {
   const t = copy[lang];
   const toast = useToast();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState(user?.email || '');
+  const [currentEmail, setCurrentEmail] = useState(user?.email || '');
+  const [emailCode, setEmailCode] = useState('');
+  const [emailStage, setEmailStage] = useState('details');
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [developmentOtp, setDevelopmentOtp] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [auditLogs, setAuditLogs] = useState([]);
 
   useEffect(() => {
     api('/api/me')
-      .then(p => { setName(p.name || ''); setPhone(p.phone || ''); })
+      .then(p => {
+        setName(p.name || '');
+        setPhone(p.phone || '');
+        const freshEmail = p.email || user?.email || '';
+        setEmail(freshEmail);
+        setCurrentEmail(freshEmail);
+        if (p.emailVerified) {
+          setEmailStage('details');
+          setEmailCode('');
+          setPendingEmail('');
+          setDevelopmentOtp('');
+        }
+        if (p.role === 'admin') {
+          api('/api/admin/audit-logs').then(setAuditLogs).catch(() => {});
+        }
+      })
       .catch(err => toast(err.message, 'error'))
       .finally(() => setLoading(false));
   }, []);
@@ -564,8 +654,78 @@ function Account({ lang, user, onBack }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const r = await api('/api/me', { method: 'PUT', body: JSON.stringify({ name, phone }) });
-      toast(`${t.saved}${r.phone ? ` Phone: ${r.phone}` : ''}`, 'success');
+      const trimmedEmail = email.trim().toLowerCase();
+      const isEmailChanged = trimmedEmail !== currentEmail.toLowerCase();
+
+      // Email unchanged — save name/phone directly, no OTP needed.
+      if (!isEmailChanged) {
+        if (emailStage === 'verify') {
+          setEmailStage('details');
+          setEmailCode('');
+          setPendingEmail('');
+          setDevelopmentOtp('');
+        }
+        const r = await api('/api/me', { method: 'PUT', body: JSON.stringify({ name, phone }) });
+        toast(`${t.saved}${r.phone ? ` Phone: ${r.phone}` : ''}`, 'success');
+        return;
+      }
+
+      // Email changed — request OTP first (only once per new address).
+      if (emailStage === 'details') {
+        const r = await api('/api/me/email-change/request', { method: 'POST', body: JSON.stringify({ email: trimmedEmail }) });
+        if (r.status === 'unchanged') {
+          setCurrentEmail(trimmedEmail);
+          const profile = await api('/api/me', { method: 'PUT', body: JSON.stringify({ name, phone }) });
+          toast(`${t.saved}${profile.phone ? ` Phone: ${profile.phone}` : ''}`, 'success');
+          return;
+        }
+        setPendingEmail(trimmedEmail);
+        setDevelopmentOtp(r.development_email_otp || '');
+        setEmailCode('');
+        setEmailStage('verify');
+        toast('Enter the verification code sent to your new email address.', 'info');
+        return;
+      }
+
+      // Verify OTP, then save profile (server validates the code — one error toast via catch).
+      if (emailStage === 'verify') {
+        if (trimmedEmail !== pendingEmail) {
+          setEmailStage('details');
+          setEmailCode('');
+          setPendingEmail('');
+          setDevelopmentOtp('');
+          toast('Email address changed. Save again to receive a new verification code.', 'info');
+          return;
+        }
+        await api('/api/me/email-change/verify', { method: 'POST', body: JSON.stringify({ email: trimmedEmail, code: emailCode }) });
+        setCurrentEmail(trimmedEmail);
+        setEmail(trimmedEmail);
+        setEmailStage('details');
+        setEmailCode('');
+        setPendingEmail('');
+        setDevelopmentOtp('');
+        onUpdated?.(trimmedEmail);
+        const r = await api('/api/me', { method: 'PUT', body: JSON.stringify({ name, phone }) });
+        toast(`${t.saved}${r.phone ? ` Phone: ${r.phone}` : ''}`, 'success');
+      }
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const changePassword = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api('/api/me/password-change', {
+        method: 'POST',
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+      });
+      setCurrentPassword('');
+      setNewPassword('');
+      toast('Password updated successfully.', 'success');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -590,7 +750,28 @@ function Account({ lang, user, onBack }) {
         : (
           <form className="account-form" onSubmit={save}>
             <label>{t.name || 'Full name'}<input value={name} onChange={e => setName(e.target.value)} required /></label>
-            <label>{t.email}<input value={user?.email || ''} disabled /></label>
+            <label>{t.email}<input type="email" value={email} onChange={e => setEmail(e.target.value)} required disabled={emailStage === 'verify'} /></label>
+            {emailStage === 'verify' && (
+              <label>
+                {t.emailVerification}
+                <OtpBoxes label={t.emailVerification} value={emailCode} onChange={setEmailCode} numeric />
+                {developmentOtp && <small className="dev-otp">Local test OTP: <strong>{developmentOtp}</strong></small>}
+                <small>Enter the code sent to <strong>{pendingEmail}</strong>. Your profile will save after verification.</small>
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => {
+                    setEmail(currentEmail);
+                    setEmailStage('details');
+                    setEmailCode('');
+                    setPendingEmail('');
+                    setDevelopmentOtp('');
+                  }}
+                >
+                  Cancel email change
+                </button>
+              </label>
+            )}
             <label>{t.phone}<input value={phone} onChange={e => setPhone(e.target.value)} placeholder="0757219157" /></label>
             <label>Role<input value={user?.role || ''} disabled /></label>
             <button className="primary" disabled={saving}>
@@ -598,6 +779,34 @@ function Account({ lang, user, onBack }) {
             </button>
           </form>
         )}
+      <form className="account-form" onSubmit={changePassword} style={{ marginTop: 28 }}>
+        <div className="eyebrow green">SECURITY</div>
+        <h2 style={{ margin: '8px 0 16px', fontSize: 18 }}>Change password</h2>
+        <label>Current password<input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required autoComplete="current-password" /></label>
+        <label>New password<input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={8} required autoComplete="new-password" /></label>
+        <button className="secondary" disabled={saving}>Update password</button>
+      </form>
+      {user?.role === 'admin' && auditLogs.length > 0 && (
+        <section style={{ marginTop: 32 }}>
+          <div className="eyebrow green">AUDIT</div>
+          <h2 style={{ margin: '8px 0 12px', fontSize: 18 }}>Recent activity</h2>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Detail</th></tr></thead>
+              <tbody>
+                {auditLogs.slice(0, 50).map(row => (
+                  <tr key={row.id}>
+                    <td>{new Date(row.at).toLocaleString()}</td>
+                    <td>{row.email}</td>
+                    <td>{row.action}</td>
+                    <td>{row.detail}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </section>
   );
 }
@@ -611,7 +820,7 @@ function Rsvp({ lang, setLang }) {
   const [data, setData] = useState(null);
   const [status, setStatus] = useState('');
   const [reason, setReason] = useState('');
-  const [msg, setMsg] = useState('');
+  const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -650,17 +859,14 @@ function Rsvp({ lang, setLang }) {
       const body = await r.json().catch(() => ({}));
       if (r.ok) {
         const responseLabel = { confirmed: 'Attendance confirmed', tentative: 'Marked as tentative', declined: 'Attendance declined' }[status] || 'Response recorded';
-        setMsg(t.responseSaved);
+        setSubmitted(true);
         toast(`${responseLabel}. Thank you.`, 'success');
       } else {
-        const errMsg = body.message || body.detail || 'The response could not be saved. Please try again.';
-        setMsg(errMsg);
+        const errMsg = body.message || body.detail || body.error || 'The response could not be saved. Please try again.';
         toast(errMsg, 'error');
       }
     } catch {
-      const errMsg = 'The service is unavailable. Check your connection and try again.';
-      setMsg(errMsg);
-      toast(errMsg, 'error');
+      toast('The service is unavailable. Check your connection and try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -688,14 +894,25 @@ function Rsvp({ lang, setLang }) {
           {status === 'declined' && (
             <label>{t.reason}<textarea value={reason} onChange={e => setReason(e.target.value)} required /></label>
           )}
-          <button className="primary full" disabled={!status || loading} onClick={submit}>
+          <button className="primary full" disabled={!status || loading || submitted} onClick={submit}>
             {loading ? <Loader2 size={17} className="spinner" /> : <>{t.submit}<ChevronRight size={17} /></>}
           </button>
-          {msg && <p className={msg === t.responseSaved ? 'success' : 'error'}>{msg}</p>}
+          {submitted && <p className="success">{t.responseSaved}</p>}
         </section>
       </main>
     </>
   );
+}
+
+function Attendance({ lang, setLang }) {
+  const token = new URLSearchParams(location.search).get('token');
+  const [data, setData] = useState(null); const [error, setError] = useState(''); const [message, setMessage] = useState(''); const [scanning, setScanning] = useState(false); const videoRef = useRef(null); const streamRef = useRef(null);
+  useEffect(() => { if (token) fetch('/api/attendance/' + token).then(async r => { const x = await r.json(); if (!r.ok) throw Error(x.message || 'Invalid check-in link'); return x; }).then(setData).catch(e => setError(e.message)); return () => streamRef.current?.getTracks().forEach(t => t.stop()); }, [token]);
+  const submit = async payload => { try { const r = await fetch('/api/attendance/sign-in',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({personal_token:token,qr_payload:payload})}); const x=await r.json(); if(!r.ok) throw Error(x.message || 'Check-in failed'); setMessage(x.message); streamRef.current?.getTracks().forEach(t=>t.stop()); setScanning(false); setData({...data,attended:true,check_in_open:false}); } catch(e){setError(e.message);} };
+  const start = async () => { setError(''); setScanning(true); try { const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}}); streamRef.current=stream; videoRef.current.srcObject=stream; await videoRef.current.play(); if ('BarcodeDetector' in window) { const detector=new BarcodeDetector({formats:['qr_code']}); const scan=async()=>{ if(!streamRef.current) return; const codes=await detector.detect(videoRef.current).catch(()=>[]); if(codes[0]?.rawValue) return submit(codes[0].rawValue); requestAnimationFrame(scan); }; scan(); } } catch(e){ setScanning(false); setError('Camera access is required to scan the meeting attendance QR code.'); } };
+  if(error && !data) return <><Brand lang={lang} setLang={setLang}/><main className="auth-shell"><section className="auth-card"><p className="error">{error}</p></section></main></>;
+  if(!data) return <><Brand lang={lang} setLang={setLang}/><main className="auth-shell"><section className="auth-card"><p className="muted">Loading check-in…</p></section></main></>;
+  return <><Brand lang={lang} setLang={setLang}/><main className="rsvp-shell"><section className="rsvp-card"><div className="eyebrow green">ATTENDANCE CHECK-IN</div><h1>{data.meeting.title}</h1><p className="rsvp-name">Welcome, {data.participant}</p><div className="rsvp-event"><p>{data.meeting.purpose}</p><div><CalendarDays size={17}/>{new Date(data.meeting.start_at).toLocaleString()}</div><div><MapPin size={17}/>{data.meeting.location}</div></div>{data.attended||message?<p className="success"><CheckCircle2 size={16}/> {message || 'Attendance already recorded.'}</p>:!data.check_in_open?<p className="notice">{data.message}</p>:<><p className="muted">Use this personal link to scan the attendance QR displayed by the meeting creator.</p>{scanning&&<video ref={videoRef} className="scanner-video" muted playsInline/>}{!scanning&&<button className="primary full" onClick={start}><QrCode size={17}/> Open camera scanner</button>}{scanning&&!('BarcodeDetector' in window)&&<label>QR payload<textarea placeholder="Paste QR payload if automatic scanning is unavailable" onChange={e=>e.target.value&&submit(e.target.value)}/></label>}{scanning&&<button className="secondary full" onClick={()=>{streamRef.current?.getTracks().forEach(t=>t.stop());setScanning(false)}}>Stop scanner</button>}{error&&<p className="error">{error}</p>}</>}</section></main></>;
 }
 
 /* ── Root App Component ─────────────────────────────────── */
@@ -703,28 +920,65 @@ function Rsvp({ lang, setLang }) {
 export default function App() {
   const [lang, setLang] = useState(localStorage.lang || 'en');
   const [user, setUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [account, setAccount] = useState(false);
   const [view, setView] = useState('dashboard');
   const toast = useToast();
 
+  // Restore session from stored token on page load.
+  useEffect(() => {
+    if (!localStorage.token) {
+      setAuthChecked(true);
+      return;
+    }
+    api('/api/me')
+      .then(p => {
+        setUser({ name: p.name, role: p.role, email: p.email });
+        history.replaceState(null, '', '/');
+      })
+      .catch(() => localStorage.removeItem('token'))
+      .finally(() => setAuthChecked(true));
+  }, []);
+
   if (location.pathname === '/rsvp.html') {
     return <Rsvp lang={lang} setLang={setLang} />;
   }
+  if (location.pathname === '/attendance.html') {
+    return <Attendance lang={lang} setLang={setLang} />;
+  }
+
+  if (!authChecked) {
+    return (
+      <main className="auth-shell">
+        <section className="auth-card">
+          <p className="muted"><Loader2 size={20} className="spinner" style={{ color: 'var(--green)' }} /> Loading…</p>
+        </section>
+      </main>
+    );
+  }
 
   if (!localStorage.token && !user) {
-    return <LoginOtp lang={lang} setLang={setLang} onLogin={u => { setUser(u); setView('dashboard'); }} />;
+    return <LoginOtp lang={lang} setLang={setLang} onLogin={u => { setUser(u); setView('dashboard'); setAccount(false); }} />;
   }
 
   const current = user || { name: 'Administrator', role: 'admin' };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await api('/api/auth/logout', { method: 'POST' });
+    } catch { /* ignore */ }
     localStorage.removeItem('token');
+    history.replaceState(null, '', '/');
+    setAccount(false);
+    setView('dashboard');
     toast('You have been signed out.', 'info');
     setUser(null);
   };
 
   return (
-    <Shell
+    <>
+      <OfflineBanner />
+      <Shell
       lang={lang} setLang={setLang} user={current}
       onLogout={handleLogout}
       view={account ? 'account' : view}
@@ -732,9 +986,10 @@ export default function App() {
       onAccount={() => { setAccount(true); setView('dashboard'); }}
     >
       {account
-        ? <Account lang={lang} user={current} onBack={() => setAccount(false)} />
+        ? <Account lang={lang} user={current} onBack={() => setAccount(false)} onUpdated={email => setUser(prev => ({ ...(prev || current), email }))} />
         : <Dashboard lang={lang} user={current} view={view} />
       }
     </Shell>
+    </>
   );
 }

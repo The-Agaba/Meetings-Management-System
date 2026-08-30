@@ -1,3 +1,32 @@
 package tz.go.bukobamc.meetings.config;
-import org.springframework.beans.factory.annotation.Value; import org.springframework.boot.CommandLineRunner; import org.springframework.context.annotation.Bean; import org.springframework.context.annotation.Configuration; import tz.go.bukobamc.meetings.model.User; import tz.go.bukobamc.meetings.repo.UserRepository; import java.nio.charset.StandardCharsets; import java.security.*; import java.util.HexFormat;
-@Configuration public class DataInitializer { private static String hash(String x){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(x.getBytes(StandardCharsets.UTF_8)));}catch(Exception e){throw new IllegalStateException(e);}} @Bean CommandLineRunner seed(UserRepository repo,@Value("${bmc.admin-email}")String email,@Value("${bmc.admin-password}")String password,@Value("${bmc.default-whatsapp-sender}")String phone){return args->{User u=repo.findByEmail(email).orElseGet(User::new);u.email=email;u.passwordHash=hash(password);u.name="System Administrator";u.role="admin";u.phone=phone;u.status="active";u.active=true;u.emailVerified=true;u.phoneVerified=true;repo.save(u);};}}
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import tz.go.bukobamc.meetings.model.User;
+import tz.go.bukobamc.meetings.repo.UserRepository;
+import tz.go.bukobamc.meetings.security.PasswordService;
+
+@Configuration
+public class DataInitializer {
+    @Bean
+    CommandLineRunner seed(UserRepository repo, PasswordService passwords,
+                           @Value("${bmc.admin-email}") String email,
+                           @Value("${bmc.admin-password}") String password,
+                           @Value("${bmc.default-whatsapp-sender}") String phone) {
+        return args -> {
+            User user = repo.findByEmail(email).orElseGet(User::new);
+            user.email = email;
+            user.passwordHash = passwords.hash(password);
+            user.name = "System Administrator";
+            user.role = "admin";
+            user.phone = phone;
+            user.status = "active";
+            user.active = true;
+            user.emailVerified = true;
+            user.phoneVerified = true;
+            repo.save(user);
+        };
+    }
+}
