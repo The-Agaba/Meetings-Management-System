@@ -39,7 +39,7 @@ form label{display:grid;gap:7px;font-size:12px;color:#435148;font-weight:750;mar
 @keyframes toastSlideIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:translateX(0)}}
 
 /* ── OTP resend cooldown warning ────────────────────────── */
-.otp-cooldown-warning{display:flex;align-items:center;gap:7px;background:#fff7e6;border:1px solid #f59e0b;border-radius:7px;padding:8px 11px;font-size:12px;color:#92400e;margin-bottom:6px;animation:toastSlideIn .22s ease-out}.otp-cooldown-warning strong{color:#b45309;font-variant-numeric:tabular-nums;font-weight:800}
+.otp-cooldown-warning{display:flex;align-items:center;gap:7px;background:#fff7e6;border:1px solid #f59e0b;border-radius:7px;padding:8px 11px;font-size:12px;color:#92400e;margin-bottom:6px;animation:toastSlideIn .22s ease-out}.otp-cooldown-warning strong{color:#b45309;font-variant-numeric:tabular-nums;font-weight:800}.otp-spam-hint{display:flex;align-items:flex-start;gap:7px;background:#fffbeb;border:1px solid #fcd34d;border-radius:7px;padding:8px 11px;font-size:12px;color:#92400e;margin-bottom:6px;animation:toastSlideIn .22s ease-out}.otp-spam-hint strong{color:#b45309;font-weight:700}
 .offline-banner{position:fixed;top:0;left:0;right:0;z-index:10000;background:#7f1d1d;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px;font-size:12px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.2)}
 form label select{border:1px solid #ccd8cf;border-radius:6px;padding:11px 12px;background:#fff;color:var(--ink)}
 
@@ -128,4 +128,123 @@ form label select{border:1px solid #ccd8cf;border-radius:6px;padding:11px 12px;b
   .auth-card{padding:20px}
   .mobile-nav{padding:4px 8px}
   .mobile-nav-link{min-height:44px;padding:4px}
+}
+
+/* ── QR Scanner UI ──────────────────────────────────────── */
+.attendance-feedback {
+  margin-top: 24px;
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+}
+
+.success-banner, .notice-banner {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 16px;
+  border-radius: 8px;
+  background: rgba(43, 161, 79, 0.08);
+  border: 1px solid rgba(43, 161, 79, 0.2);
+}
+
+.notice-banner {
+  background: rgba(220, 165, 33, 0.08);
+  border: 1px solid rgba(220, 165, 33, 0.2);
+}
+
+.success-banner strong, .notice-banner strong {
+  display: block;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.success-banner p, .notice-banner p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.scanner-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.instruction-box {
+  display: flex;
+  gap: 12px;
+  background: var(--bg-hover);
+  padding: 12px 16px;
+  border-radius: 6px;
+  align-items: center;
+}
+
+.instruction-box p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.instruction-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.video-wrapper {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 4/3;
+}
+
+.scanner-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.scanner-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 0 2000px rgba(0,0,0,0.4);
+}
+
+.scan-frame {
+  width: 65%;
+  aspect-ratio: 1;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  box-shadow: 0 0 0 2000px rgba(0,0,0,0.4);
+  position: relative;
+}
+
+.scan-frame::before, .scan-frame::after,
+.scan-frame span::before, .scan-frame span::after {
+  content: '';
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-color: var(--green);
+  border-style: solid;
+}
+
+.scan-frame::before { top: -2px; left: -2px; border-width: 4px 0 0 4px; border-top-left-radius: 12px; }
+.scan-frame::after { top: -2px; right: -2px; border-width: 4px 4px 0 0; border-top-right-radius: 12px; }
+
+.large-btn {
+  height: 48px;
+  font-size: 15px;
+}
+
+.fallback-input {
+  margin-top: 16px;
+  font-size: 13.5px;
 }

@@ -8,7 +8,7 @@ import { useToast } from './toast.jsx';
 
 const RESEND_COOLDOWN = 60;
 
-function ResendCooldown({ seconds, label, onResend, resending, lang }) {
+function ResendCooldown({ seconds, label, onResend, resending, lang, showSpamHint }) {
   const cooling = seconds > 0;
   const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
   const ss = String(seconds % 60).padStart(2, '0');
@@ -22,6 +22,16 @@ function ResendCooldown({ seconds, label, onResend, resending, lang }) {
             {lang === 'en'
               ? <>New OTP cannot be requested for <strong>{mm}:{ss}</strong></>
               : <>OTP mpya haiwezi kuombwa kwa <strong>{mm}:{ss}</strong></>}
+          </span>
+        </div>
+      )}
+      {cooling && showSpamHint && (
+        <div className="otp-spam-hint">
+          <Mail size={13} style={{ flexShrink: 0, color: '#b45309' }} />
+          <span>
+            {lang === 'en'
+              ? <>Can't find the email? Check your <strong>Spam / Junk</strong> folder.</>
+              : <>Hupati barua pepe? Angalia folda ya <strong>Spam / Barua taka</strong>.</>}
           </span>
         </div>
       )}
@@ -121,8 +131,12 @@ export default function Register({ lang, setLang }) {
       startCooldown(channel);
       toast(
         lang === 'en'
-          ? `OTP resent via ${channel === 'email' ? 'email' : 'WhatsApp'}.`
-          : `OTP imetumwa tena kwa ${channel === 'email' ? 'barua pepe' : 'WhatsApp'}.`,
+          ? channel === 'email'
+            ? 'OTP resent! Check your inbox — and your Spam / Junk folder if you don't see it.'
+            : 'OTP resent via WhatsApp.'
+          : channel === 'email'
+            ? 'OTP imetumwa tena! Angalia kikasha chako — na folda ya Spam ikiwa hupioni.'
+            : 'OTP imetumwa tena kwa WhatsApp.',
         'success'
       );
     } catch (err) {
@@ -184,13 +198,13 @@ export default function Register({ lang, setLang }) {
                     <label>{t.emailVerification}
                       <OtpBoxes label={t.emailVerification} value={codes.email} onChange={email => setCodes({ ...codes, email })} />
                       <small>{t.otpEmail}</small>
-                      {developmentCode && <small className="dev-otp">Local test OTP: <strong>{developmentCode}</strong></small>}
                       <ResendCooldown
                         seconds={cooldown.email}
                         label={{ en: 'Resend email OTP', sw: 'Tuma tena OTP ya barua pepe' }}
                         onResend={() => resend('email')}
                         resending={resending.email}
                         lang={lang}
+                        showSpamHint
                       />
                     </label>
                     {whatsapp && (

@@ -80,10 +80,12 @@ public class AuthOtpController {
         result.put("whatsapp_enabled", whatsappEnabled);
         result.put("message", whatsappEnabled ? "OTP sent to email and WhatsApp" : "OTP sent to email");
         if ("development".equalsIgnoreCase(appEnv)) {
-            result.put("development_email_otp", emailCode);
+            System.out.println("====== DEV OTP (Login) ======");
+            System.out.println("Email OTP: " + emailCode);
             if (whatsappEnabled && user.phone != null && !user.phone.isBlank()) {
-                result.put("development_whatsapp_otp", phoneCode);
+                System.out.println("WhatsApp OTP: " + phoneCode);
             }
+            System.out.println("=============================");
         }
         return result;
     }

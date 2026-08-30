@@ -93,7 +93,6 @@ export default function LoginOtp({ lang, setLang, onLogin }) {
                 <label>
                   Verification code
                   <OtpBoxes label="Verification code" value={resetCode} onChange={setResetCode} numeric />
-                  {devOtp && <small className="dev-otp">Local test OTP: <strong>{devOtp}</strong></small>}
                 </label>
                 <label>New password<input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={8} required autoComplete="new-password" /></label>
               </>

@@ -72,8 +72,7 @@ public class NotificationService {
             mail.send(m);
         } catch (Exception e) {
             System.err.println("Email delivery failed: " + e.getMessage());
-            if (!"development".equalsIgnoreCase(System.getenv().getOrDefault("APP_ENV", "development")))
-                throw new IllegalStateException("Email delivery failed. Check SMTP_USERNAME, SMTP_PASSWORD, and Gmail App Password settings.", e);
+            throw new IllegalStateException("Email delivery failed. Check SMTP_USERNAME, SMTP_PASSWORD, and Gmail App Password settings.", e);
         }
     }
 

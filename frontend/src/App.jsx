@@ -1293,14 +1293,199 @@ function Rsvp({ lang, setLang }) {
 }
 
 function Attendance({ lang, setLang }) {
+  const t = copy[lang] || copy.en;
   const token = new URLSearchParams(location.search).get('token');
-  const [data, setData] = useState(null); const [error, setError] = useState(''); const [message, setMessage] = useState(''); const [scanning, setScanning] = useState(false); const videoRef = useRef(null); const streamRef = useRef(null);
-  useEffect(() => { if (token) fetch('/api/attendance/' + token).then(async r => { const x = await r.json(); if (!r.ok) throw Error(x.message || 'Invalid check-in link'); return x; }).then(setData).catch(e => setError(e.message)); return () => streamRef.current?.getTracks().forEach(t => t.stop()); }, [token]);
-  const submit = async payload => { try { const r = await fetch('/api/attendance/sign-in',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({personal_token:token,qr_payload:payload})}); const x=await r.json(); if(!r.ok) throw Error(x.message || 'Check-in failed'); setMessage(x.message); streamRef.current?.getTracks().forEach(t=>t.stop()); setScanning(false); setData({...data,attended:true,check_in_open:false}); } catch(e){setError(e.message);} };
-  const start = async () => { setError(''); setScanning(true); try { const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}}); streamRef.current=stream; videoRef.current.srcObject=stream; await videoRef.current.play(); if ('BarcodeDetector' in window) { const detector=new BarcodeDetector({formats:['qr_code']}); const scan=async()=>{ if(!streamRef.current) return; const codes=await detector.detect(videoRef.current).catch(()=>[]); if(codes[0]?.rawValue) return submit(codes[0].rawValue); requestAnimationFrame(scan); }; scan(); } } catch(e){ setScanning(false); setError('Camera access is required to scan the meeting attendance QR code.'); } };
-  if(error && !data) return <><Brand lang={lang} setLang={setLang}/><main className="auth-shell"><section className="auth-card"><p className="error">{error}</p></section></main></>;
-  if(!data) return <><Brand lang={lang} setLang={setLang}/><main className="auth-shell"><section className="auth-card"><p className="muted">Loading check-in…</p></section></main></>;
-  return <><Brand lang={lang} setLang={setLang}/><main className="rsvp-shell"><section className="rsvp-card"><div className="eyebrow green">ATTENDANCE CHECK-IN</div><h1>{data.meeting.title}</h1><p className="rsvp-name">Welcome, {data.participant}</p><div className="rsvp-event"><p>{data.meeting.purpose}</p><div><CalendarDays size={17}/>{new Date(data.meeting.start_at).toLocaleString()}</div><div><MapPin size={17}/>{data.meeting.location}</div></div>{data.attended||message?<p className="success"><CheckCircle2 size={16}/> {message || 'Attendance already recorded.'}</p>:!data.check_in_open?<p className="notice">{data.message}</p>:<><p className="muted">Use this personal link to scan the attendance QR displayed by the meeting creator.</p>{scanning&&<video ref={videoRef} className="scanner-video" muted playsInline/>}{!scanning&&<button className="primary full" onClick={start}><QrCode size={17}/> Open camera scanner</button>}{scanning&&!('BarcodeDetector' in window)&&<label>QR payload<textarea placeholder="Paste QR payload if automatic scanning is unavailable" onChange={e=>e.target.value&&submit(e.target.value)}/></label>}{scanning&&<button className="secondary full" onClick={()=>{streamRef.current?.getTracks().forEach(t=>t.stop());setScanning(false)}}>Stop scanner</button>}{error&&<p className="error">{error}</p>}</>}</section></main></>;
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const [scanStatus, setScanStatus] = useState('idle'); // idle, scanning, success
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  
+  useEffect(() => {
+    if (token) {
+      fetch('/api/attendance/' + token)
+        .then(async r => {
+          const x = await r.json();
+          if (!r.ok) throw Error(x.message || 'Invalid check-in link');
+          return x;
+        })
+        .then(setData)
+        .catch(e => setError(e.message));
+    }
+    return () => streamRef.current?.getTracks().forEach(t => t.stop());
+  }, [token]);
+
+  const submit = async payload => {
+    try {
+      setScanStatus('success');
+      const r = await fetch('/api/attendance/sign-in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personal_token: token, qr_payload: payload })
+      });
+      const x = await r.json();
+      if (!r.ok) throw Error(x.message || 'Check-in failed');
+      setMessage(x.message);
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      setScanning(false);
+      setData({ ...data, attended: true, check_in_open: false });
+    } catch (e) {
+      setError(e.message);
+      setScanStatus('idle');
+    }
+  };
+
+  const start = async () => {
+    setError('');
+    setScanning(true);
+    setScanStatus('scanning');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      
+      if ('BarcodeDetector' in window) {
+        const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+        const scan = async () => {
+          if (!streamRef.current) return;
+          try {
+            if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+              const codes = await detector.detect(videoRef.current);
+              if (codes.length > 0 && codes[0].rawValue) {
+                return submit(codes[0].rawValue);
+              }
+            }
+          } catch (e) {
+            console.error('Barcode detection error:', e);
+          }
+          requestAnimationFrame(scan);
+        };
+        scan();
+      } else {
+        // Fallback for browsers that don't support BarcodeDetector
+        setError('Your browser does not support automatic QR code scanning. Please paste the QR payload below.');
+      }
+    } catch (e) {
+      setScanning(false);
+      setScanStatus('idle');
+      setError('Camera access is required to scan the meeting attendance QR code. Please allow camera permissions.');
+    }
+  };
+
+  const stopScanner = () => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    setScanning(false);
+    setScanStatus('idle');
+  };
+
+  if (error && !data) {
+    return (
+      <>
+        <Brand lang={lang} setLang={setLang} />
+        <main className="auth-shell">
+          <section className="auth-card">
+            <div className="auth-kicker"><AlertCircle size={16} /> CHECK-IN ERROR</div>
+            <h2>Unable to load</h2>
+            <p className="error">{error}</p>
+          </section>
+        </main>
+      </>
+    );
+  }
+
+  if (!data) {
+    return (
+      <>
+        <Brand lang={lang} setLang={setLang} />
+        <main className="auth-shell">
+          <section className="auth-card">
+            <p className="muted"><Loader2 size={20} className="spinner" style={{ color: 'var(--green)' }} /> Loading check-in…</p>
+          </section>
+        </main>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Brand lang={lang} setLang={setLang} />
+      <main className="rsvp-shell">
+        <section className="rsvp-card">
+          <div className="eyebrow green">ATTENDANCE CHECK-IN</div>
+          <h1>{data.meeting.title}</h1>
+          <p className="rsvp-name">Welcome, <strong>{data.participant}</strong></p>
+          
+          <div className="rsvp-event">
+            <p>{data.meeting.purpose}</p>
+            <div><CalendarDays size={17} />{new Date(data.meeting.start_at).toLocaleString()}</div>
+            <div><MapPin size={17} />{data.meeting.location}</div>
+          </div>
+          
+          <div className="attendance-feedback">
+            {data.attended || message ? (
+              <div className="success-banner">
+                <CheckCircle2 size={24} style={{ color: 'var(--green)' }} />
+                <div>
+                  <strong>{message || 'Attendance already recorded.'}</strong>
+                  <p>You have successfully checked into this meeting.</p>
+                </div>
+              </div>
+            ) : !data.check_in_open ? (
+              <div className="notice-banner">
+                <Clock3 size={24} style={{ color: 'var(--gold)' }} />
+                <div>
+                  <strong>Check-in is not available</strong>
+                  <p>{data.message}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="scanner-container">
+                <div className="instruction-box">
+                  <QrCode size={20} className="instruction-icon" />
+                  <p><strong>Instructions:</strong> Use your camera to scan the session attendance QR code displayed by the meeting organiser.</p>
+                </div>
+                
+                {scanning && (
+                  <div className="video-wrapper">
+                    <video ref={videoRef} className="scanner-video" muted playsInline />
+                    <div className="scanner-overlay">
+                      <div className="scan-frame"></div>
+                    </div>
+                  </div>
+                )}
+                
+                {!scanning && (
+                  <button className="primary full large-btn" onClick={start}>
+                    <QrCode size={18} /> Open camera scanner
+                  </button>
+                )}
+                
+                {scanning && !('BarcodeDetector' in window) && (
+                  <label className="fallback-input">
+                    Or paste QR payload manually:
+                    <textarea placeholder='{"meetingId": 123, "sessionToken": "..."}' onChange={e => e.target.value && submit(e.target.value)} />
+                  </label>
+                )}
+                
+                {scanning && (
+                  <button className="secondary full" style={{ marginTop: 16 }} onClick={stopScanner}>
+                    Stop scanner
+                  </button>
+                )}
+                
+                {error && <p className="error" style={{ marginTop: 16 }}>{error}</p>}
+              </div>
+            )}
+          </div>
+        </section>
+      </main>
+    </>
+  );
 }
 
 /* ── Root App Component ─────────────────────────────────── */
