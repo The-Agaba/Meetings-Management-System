@@ -3,6 +3,7 @@ import { ChevronRight, Mail, ShieldCheck, Eye, EyeOff, Loader2 } from 'lucide-re
 import { Brand } from './ui.jsx';
 import { copy, api } from './utils.js';
 import OtpBoxes from './OtpBoxes.jsx';
+import OfflineBanner from './OfflineBanner.jsx';
 import { useToast } from './toast.jsx';
 
 export default function LoginOtp({ lang, setLang, onLogin }) {
@@ -58,12 +59,13 @@ export default function LoginOtp({ lang, setLang, onLogin }) {
 
   return (
     <>
+      <OfflineBanner />
       <Brand lang={lang} setLang={setLang} />
       <main className="auth-shell">
         <section className="auth-card">
           <div className="auth-kicker"><ShieldCheck size={16} /> SECURE STAFF ACCESS</div>
           <h1>{title}</h1>
-          <p className="muted">{stage === 'login' ? t.portal : 'We will email a one-time code if the account exists.'}</p>
+          <p className="muted">{stage === 'login' ? 'Sign in with your email and password. OTP verification is only required when registering a new account.' : 'We will email a one-time code if the account exists.'}</p>
 
           <form onSubmit={submit}>
             {(stage === 'login' || stage === 'forgot-request') && (

@@ -6,40 +6,69 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
+
+import tz.go.bukobamc.meetings.model.Guest;
+import tz.go.bukobamc.meetings.model.Meeting;
+
 import java.util.*;
 
 @Service
 public class NotificationService {
 
     private final JavaMailSender mail;
+    private final EmailTemplateService templates;
     private final String from, whatsappUrl, whatsappToken, phoneNumberId;
-    private final boolean whatsappEnabled;
+    private final String templateName, templateLanguage;
+    private final boolean whatsappEnabled, useTemplates;
 
     public NotificationService(
             JavaMailSender mail,
+            EmailTemplateService templates,
             @Value("${bmc.default-email-sender}") String from,
-            @Value("${WHATSAPP_API_URL:https://graph.facebook.com/v20.0}") String url,
+            @Value("${WHATSAPP_API_URL:https://graph.facebook.com/v21.0}") String url,
             @Value("${WHATSAPP_ACCESS_TOKEN:}") String token,
             @Value("${WHATSAPP_PHONE_NUMBER_ID:}") String numberId,
-            @Value("${bmc.whatsapp-enabled:false}") boolean enabled) {
+            @Value("${bmc.whatsapp-enabled:false}") boolean enabled,
+            @Value("${WHATSAPP_USE_TEMPLATES:true}") boolean useTemplates,
+            @Value("${WHATSAPP_TEMPLATE_NAME:hello_world}") String templateName,
+            @Value("${WHATSAPP_TEMPLATE_LANGUAGE:en_US}") String templateLanguage) {
         this.mail = mail;
+        this.templates = templates;
         this.from = from;
         whatsappUrl = url;
         whatsappToken = token;
         phoneNumberId = numberId;
         whatsappEnabled = enabled;
+        this.useTemplates = useTemplates;
+        this.templateName = templateName;
+        this.templateLanguage = templateLanguage;
     }
 
-    /** Send a plain-text email (generic use). */
-    public void email(String to, String subject, String body) {
+    public boolean isWhatsAppConfigured() {
+        return whatsappEnabled && !whatsappToken.isBlank() && !phoneNumberId.isBlank();
+    }
+
+    public Map<String, Object> status() {
+        return Map.of(
+            "enabled", whatsappEnabled,
+            "configured", isWhatsAppConfigured(),
+            "use_templates", useTemplates,
+            "template", templateName,
+            "template_language", templateLanguage
+        );
+    }
+
+    /** Send a formatted HTML email with a plain-text fallback. */
+    public void emailHtml(String to, String subject, String htmlBody, String plainBody) {
         if (to == null || to.isBlank()) return;
         try {
             MimeMessage m = mail.createMimeMessage();
-            MimeMessageHelper h = new MimeMessageHelper(m, false, "UTF-8");
+            MimeMessageHelper h = new MimeMessageHelper(m, true, "UTF-8");
             h.setFrom(from);
             h.setTo(to);
             h.setSubject(subject);
-            h.setText(body, false);
+            h.setText(plainBody == null ? stripHtml(htmlBody) : plainBody, htmlBody);
             mail.send(m);
         } catch (Exception e) {
             System.err.println("Email delivery failed: " + e.getMessage());
@@ -48,130 +77,135 @@ public class NotificationService {
         }
     }
 
-    /** Send a styled HTML OTP email with the code displayed large and centered. */
+    public void verificationEmail(String to, String recipientName, String code, String subject,
+                                  String headline, String instructions) {
+        String html = templates.verificationCode(recipientName, code, headline, instructions);
+        String plain = templates.verificationCodePlain(code, headline);
+        emailHtml(to, subject, html, plain);
+    }
+
+    public void meetingInvitationEmail(Guest guest, Meeting meeting, String organizerName, String checkInLink) {
+        if (guest.email == null || guest.email.isBlank()) return;
+        String subject = "You're invited: " + meeting.title;
+        String html = templates.meetingInvitation(guest, meeting, organizerName, checkInLink);
+        String plain = templates.meetingInvitationPlain(guest, meeting, organizerName, checkInLink);
+        emailHtml(guest.email, subject, html, plain);
+    }
+
+    public String meetingInvitationPlain(Guest guest, Meeting meeting, String organizerName, String checkInLink) {
+        return templates.meetingInvitationPlain(guest, meeting, organizerName, checkInLink);
+    }
+
+    /** Backward-compatible OTP email for sign-in flows. */
     public void otpEmail(String to, String otp) {
-        if (to == null || to.isBlank()) return;
-        String html = buildOtpHtml(otp);
-        try {
-            MimeMessage m = mail.createMimeMessage();
-            MimeMessageHelper h = new MimeMessageHelper(m, false, "UTF-8");
-            h.setFrom(from);
-            h.setTo(to);
-            h.setSubject("BMC Meetings – Your Sign-In Code");
-            h.setText(html, true);   // true = HTML
-            mail.send(m);
-        } catch (Exception e) {
-            System.err.println("OTP email delivery failed: " + e.getMessage());
-            if (!"development".equalsIgnoreCase(System.getenv().getOrDefault("APP_ENV", "development")))
-                throw new IllegalStateException("Email delivery failed. Check SMTP_USERNAME, SMTP_PASSWORD, and Gmail App Password settings.", e);
-        }
+        verificationEmail(
+            to,
+            null,
+            otp,
+            "BMC Meetings – Your verification code",
+            "Your verification code",
+            "Use the one-time code below to complete your request."
+        );
     }
 
-    private String buildOtpHtml(String otp) {
-        return """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>BMC Meetings – Sign-In Code</title>
-</head>
-<body style="margin:0;padding:0;background-color:#f4f6fb;font-family:'Segoe UI',Arial,sans-serif;">
-  <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:40px 0;">
-    <tr>
-      <td align="center">
-        <table role="presentation" width="520" cellpadding="0" cellspacing="0"
-               style="max-width:520px;width:100%%;background:#ffffff;border-radius:16px;
-                      box-shadow:0 4px 24px rgba(0,0,0,0.08);overflow:hidden;">
-
-          <!-- Header banner -->
-          <tr>
-            <td style="background:linear-gradient(135deg,#1a3c5e 0%%,#2563eb 100%%);
-                        padding:36px 40px;text-align:center;">
-              <p style="margin:0;font-size:13px;font-weight:600;letter-spacing:2px;
-                         color:#93c5fd;text-transform:uppercase;">Bukoba Municipal Council</p>
-              <h1 style="margin:8px 0 0;font-size:24px;font-weight:700;color:#ffffff;">
-                BMC Meeting System
-              </h1>
-            </td>
-          </tr>
-
-          <!-- Body -->
-          <tr>
-            <td style="padding:40px 40px 32px;">
-              <p style="margin:0 0 8px;font-size:16px;color:#374151;">Hello,</p>
-              <p style="margin:0 0 32px;font-size:15px;color:#6b7280;line-height:1.6;">
-                Use the one-time code below to complete your sign-in.
-                This code is valid for <strong>10 minutes</strong>.
-              </p>
-
-              <!-- OTP block -->
-              <table role="presentation" width="100%%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center"
-                      style="background:#f0f5ff;border:2px dashed #2563eb;
-                             border-radius:12px;padding:28px 20px;">
-                    <p style="margin:0 0 8px;font-size:12px;font-weight:600;
-                               letter-spacing:2px;color:#2563eb;text-transform:uppercase;">
-                      Your Sign-In Code
-                    </p>
-                    <p style="margin:0;font-size:52px;font-weight:800;
-                               letter-spacing:12px;color:#1a3c5e;
-                               font-family:'Courier New',Courier,monospace;">
-                      %s
-                    </p>
-                  </td>
-                </tr>
-              </table>
-
-              <p style="margin:28px 0 0;font-size:13px;color:#9ca3af;line-height:1.6;">
-                If you did not request this code, please ignore this email or contact
-                your system administrator immediately.
-              </p>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background:#f9fafb;border-top:1px solid #e5e7eb;
-                        padding:20px 40px;text-align:center;">
-              <p style="margin:0;font-size:12px;color:#9ca3af;">
-                &copy; 2025 Bukoba Municipal Council &nbsp;|&nbsp; BMC Meeting System
-              </p>
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-""".formatted(otp);
-    }
-
-    public void whatsapp(String to, String body) {
-        if (!whatsappEnabled) { System.err.println("WhatsApp is disabled until Meta setup is complete"); return; }
-        if (to == null || to.isBlank()) return;
-        if (whatsappUrl.isBlank() || whatsappToken.isBlank() || phoneNumberId.isBlank()) {
-            System.err.println("WhatsApp not configured; message for " + to + " was not sent");
-            return;
+    /**
+     * Send WhatsApp message. In test/sandbox mode uses approved templates (default: hello_world).
+     * Plain text only works inside the 24-hour customer service window.
+     */
+    public Map<String, Object> whatsapp(String to, String body) {
+        if (!whatsappEnabled) {
+            System.err.println("WhatsApp is disabled — set WHATSAPP_ENABLED=true in .env");
+            return Map.of("sent", false, "reason", "disabled");
         }
+        if (to == null || to.isBlank()) return Map.of("sent", false, "reason", "empty_number");
+        if (whatsappToken.isBlank() || phoneNumberId.isBlank()) {
+            System.err.println("WhatsApp not configured; set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID");
+            return Map.of("sent", false, "reason", "not_configured");
+        }
+        String normalized = normalizePhone(to);
         try {
-            String endpoint = whatsappUrl.endsWith("/")
-                    ? whatsappUrl + phoneNumberId + "/messages"
-                    : whatsappUrl + "/" + phoneNumberId + "/messages";
-            Map<String, Object> payload = Map.of(
-                    "messaging_product", "whatsapp",
-                    "to", to,
-                    "type", "text",
-                    "text", Map.of("preview_url", true, "body", body));
-            RestClient.create(endpoint).post()
-                    .header("Authorization", "Bearer " + whatsappToken)
-                    .header("Content-Type", "application/json")
-                    .body(payload).retrieve().toBodilessEntity();
+            if (useTemplates) {
+                return sendTemplate(normalized, body);
+            }
+            return sendText(normalized, body);
+        } catch (RestClientResponseException e) {
+            String detail = e.getResponseBodyAsString();
+            System.err.println("WhatsApp delivery failed: " + detail);
+            return Map.of("sent", false, "reason", "api_error", "detail", detail, "to", normalized);
         } catch (Exception e) {
             System.err.println("WhatsApp delivery failed: " + e.getMessage());
+            return Map.of("sent", false, "reason", e.getMessage(), "to", normalized);
         }
+    }
+
+    /** Convenience wrapper used by existing call sites. */
+    public void whatsappQuiet(String to, String body) {
+        whatsapp(to, body);
+    }
+
+    private Map<String, Object> sendText(String to, String body) {
+        String endpoint = messagesEndpoint();
+        Map<String, Object> payload = Map.of(
+            "messaging_product", "whatsapp",
+            "to", to,
+            "type", "text",
+            "text", Map.of("preview_url", true, "body", body));
+        RestClient.create(endpoint).post()
+            .header("Authorization", "Bearer " + whatsappToken)
+            .header("Content-Type", "application/json")
+            .body(payload).retrieve().toBodilessEntity();
+        return Map.of("sent", true, "mode", "text", "to", to);
+    }
+
+    private Map<String, Object> sendTemplate(String to, String body) {
+        String endpoint = messagesEndpoint();
+        Map<String, Object> template = new LinkedHashMap<>();
+        template.put("name", templateName);
+        template.put("language", Map.of("code", templateLanguage));
+
+        if (!"hello_world".equalsIgnoreCase(templateName) && body != null && !body.isBlank()) {
+            template.put("components", List.of(Map.of(
+                "type", "body",
+                "parameters", List.of(Map.of("type", "text", "text", truncate(body, 1024)))
+            )));
+        }
+
+        Map<String, Object> payload = Map.of(
+            "messaging_product", "whatsapp",
+            "to", to,
+            "type", "template",
+            "template", template);
+
+        var response = RestClient.create(endpoint).post()
+            .header("Authorization", "Bearer " + whatsappToken)
+            .header("Content-Type", "application/json")
+            .body(payload).retrieve().body(Map.class);
+
+        return Map.of("sent", true, "mode", "template", "template", templateName, "to", to, "response", response == null ? Map.of() : response);
+    }
+
+    private String messagesEndpoint() {
+        return whatsappUrl.endsWith("/")
+            ? whatsappUrl + phoneNumberId + "/messages"
+            : whatsappUrl + "/" + phoneNumberId + "/messages";
+    }
+
+    /** Tanzania-friendly: 0757219157 → 255757219157 */
+    public static String normalizePhone(String raw) {
+        String digits = raw.replaceAll("[^0-9]", "");
+        if (digits.startsWith("0") && digits.length() == 10) {
+            return "255" + digits.substring(1);
+        }
+        if (digits.startsWith("255")) return digits;
+        if (digits.length() == 9) return "255" + digits;
+        return digits;
+    }
+
+    private static String truncate(String value, int max) {
+        return value.length() <= max ? value : value.substring(0, max - 3) + "...";
+    }
+
+    private static String stripHtml(String html) {
+        return html.replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ").trim();
     }
 }

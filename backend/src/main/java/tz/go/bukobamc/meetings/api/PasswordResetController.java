@@ -68,8 +68,14 @@ public class PasswordResetController {
         response.put("message", "If that email is registered, a reset code has been sent.");
         users.findByEmail(email).ifPresent(user -> {
             String code = otpService.issueNumeric(user, "password_reset");
-            notifications.email(user.email, "BMC Meetings password reset",
-                "Your password reset code is " + code + ". It expires in 10 minutes.");
+            notifications.verificationEmail(
+                user.email,
+                user.name,
+                code,
+                "BMC Meetings – Password reset",
+                "Reset your password",
+                "Enter this code to reset your BMC Meetings password."
+            );
             audit.record(user, "PASSWORD_RESET_REQUEST", "Reset code sent", clientIp(request));
             if ("development".equalsIgnoreCase(appEnv)) response.put("development_email_otp", code);
         });

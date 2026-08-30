@@ -10,13 +10,13 @@ For physical attendance, the Organizer opens Live Attendance for their own meeti
 
 ### English
 
-1. Sign in with the council staff account. 2. Select New meeting. 3. Complete title, purpose, time, venue, department, type, and priority. 4. Create the meeting. 5. Open Guests and add individuals or import the supplied CSV. 6. Review counts and select Send invites. 7. Open the meeting later to review Confirmed, Declined, Tentative, and No response. 8. Select Reports to download the attendance CSV. Use the EN | SW switch on every page.
+1. Sign in with the council staff account (email and password). 2. Select New meeting. 3. Complete title, purpose, time, venue, department, type, and priority. 4. Create the meeting. 5. Open Guests and add individuals or download the XLSX template from the import section, then upload CSV/XLSX. 6. Review counts and select Send invites. 7. To reschedule, edit the meeting and choose **Notify reschedule** so guests receive an updated notice. 8. To cancel, use **Cancel meeting** and enter a reason — guests are notified automatically. 9. Open Reports to download attendance as CSV or PDF. Administrators can manage staff accounts and view audit logs from **Administration**. Use the EN | SW switch on every page.
 
 Past meetings remain visible for record review but are greyed out and read-only. The server rejects edits, guest changes, imports, and new invitations after the meeting end time.
 
 ### Kiswahili
 
-1. Ingia kwa akaunti ya mtumishi wa halmashauri. 2. Chagua Mkutano mpya. 3. Jaza kichwa, madhumuni, muda, mahali, idara, aina, na kipaumbele. 4. Unda mkutano. 5. Fungua Waalikwa na ongeza mtu mmoja au ingiza CSV. 6. Kagua hesabu na chagua Tuma mialiko. 7. Fungua mkutano kuona Amethibitisha, Amekataa, Bado, na Hajajibu. 8. Chagua Ripoti kupakua CSV ya mahudhurio. Tumia EN | SW kwenye kila ukurasa.
+1. Ingia kwa akaunti ya mtumishi wa halmashauri (barua pepe na nenosiri). 2. Chagua Mkutano mpya. 3. Jaza kichwa, madhumuni, muda, mahali, idara, aina, na kipaumbele. 4. Unda mkutano. 5. Fungua Waalikwa, pakua kiolezo cha XLSX, kisha pakia CSV/XLSX. 6. Kagua hesabu na chagua Tuma mialiko. 7. Kubadilisha ratiba, hariri mkutano na chagua **Notify reschedule**. 8. Kufuta, tumia **Cancel meeting** na andika sababu. 9. Pakua ripoti ya mahudhurio kama CSV au PDF. Wasimamizi wanaweza kusimamia akaunti kutoka **Administration**. Tumia EN | SW kwenye kila ukurasa.
 
 Mikutano iliyopita itaendelea kuonekana kwa ajili ya kumbukumbu lakini itakuwa ya kijivu na ya kusoma tu. Seva itakataa mabadiliko baada ya muda wa kumalizika kwa mkutano.
 

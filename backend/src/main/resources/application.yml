@@ -30,6 +30,9 @@ bmc:
   default-whatsapp-sender: ${WHATSAPP_DEFAULT_SENDER:0757219157}
   default-email-sender: ${SMTP_FROM:theagaba.dev@gmail.com}
   whatsapp-enabled: ${WHATSAPP_ENABLED:false}
+  whatsapp-use-templates: ${WHATSAPP_USE_TEMPLATES:true}
+  whatsapp-template-name: ${WHATSAPP_TEMPLATE_NAME:hello_world}
+  whatsapp-template-language: ${WHATSAPP_TEMPLATE_LANGUAGE:en_US}
   otp-expiry-minutes: ${OTP_EXPIRY_MINUTES:10}
   qr-rotation-seconds: ${QR_ROTATION_SECONDS:45}
   session-days: ${SESSION_DAYS:7}

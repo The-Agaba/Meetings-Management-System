@@ -1,20 +1,32 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  AlertCircle, CalendarDays, CheckCircle2, ChevronRight, Clock3, Download,
-  FileUp, Loader2, LayoutDashboard, LogOut, MapPin, Plus,
-  QrCode, Send, Settings2, Users, X
+  AlertCircle, Ban, Bell, CalendarDays, CheckCircle2, ChevronRight, Clock3, Download,
+  FileUp, Loader2, LayoutDashboard, LogOut, MapPin, MessageCircle, Plus,
+  QrCode, Send, Settings2, ShieldCheck, UserCog, Users, X
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Brand } from './ui.jsx';
-import { copy, api } from './utils.js';
+import { copy, api, parseApiError } from './utils.js';
 import LoginOtp from './LoginOtp.jsx';
 import OtpBoxes from './OtpBoxes.jsx';
 import OfflineBanner from './OfflineBanner.jsx';
 import { useToast } from './toast.jsx';
 
+async function downloadBlob(path, filename, token) {
+  const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw Error('Download failed. Please sign in again and retry.');
+  const blob = await r.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 /* ── Layout Shell ───────────────────────────────────────── */
 
-function Shell({ lang, setLang, user, onLogout, children, onAccount, view, onNavigate }) {
+function Shell({ lang, setLang, user, onLogout, children, onAccount, onAdmin, view, onNavigate }) {
   const t = copy[lang];
   return (
     <>
@@ -34,6 +46,14 @@ function Shell({ lang, setLang, user, onLogout, children, onAccount, view, onNav
           >
             <CalendarDays size={17} />{t.meetings}
           </button>
+          {user?.role === 'admin' && (
+            <button
+              className={`side-link ${view === 'admin' ? 'active' : ''}`}
+              onClick={() => onAdmin()}
+            >
+              <UserCog size={17} />Administration
+            </button>
+          )}
           <div className="side-spacer" />
           <div className="side-label">ACCOUNT</div>
           <button
@@ -72,6 +92,16 @@ function Shell({ lang, setLang, user, onLogout, children, onAccount, view, onNav
           <CalendarDays size={20} />
           <span>{t.meetings}</span>
         </button>
+        {user?.role === 'admin' && (
+          <button
+            type="button"
+            className={`mobile-nav-link ${view === 'admin' ? 'active' : ''}`}
+            onClick={() => onAdmin()}
+          >
+            <UserCog size={20} />
+            <span>Admin</span>
+          </button>
+        )}
         <button
           type="button"
           className={`mobile-nav-link ${view === 'account' ? 'active' : ''}`}
@@ -107,10 +137,16 @@ function Metric({ icon, label, value }) {
 
 function MeetingTable({ rows, t, onSelect }) {
   const statusColor = (m) => {
+    if (m.status === 'cancelled') return 'red';
     if (m.past) return 'grey';
     if (m.status === 'published') return 'green';
     if (m.status === 'draft') return 'gold';
     return 'grey';
+  };
+  const statusLabel = (m) => {
+    if (m.status === 'cancelled') return 'cancelled';
+    if (m.past) return 'past';
+    return m.status;
   };
   return (
     <div className="table-wrap">
@@ -141,7 +177,7 @@ function MeetingTable({ rows, t, onSelect }) {
               <td>{m.guest_count || 0}</td>
               <td>
                 <span className={`badge ${statusColor(m)}`}>
-                  {m.past ? 'Past' : m.status}
+                  {statusLabel(m)}
                 </span>
               </td>
               <td>
@@ -167,6 +203,8 @@ function toLocalInput(iso) {
 function MeetingModal({ t, meeting, onClose, onSaved }) {
   const toast = useToast();
   const isEdit = !!meeting;
+  const originalStart = meeting?.start_at;
+  const originalEnd = meeting?.end_at;
   const [form, setForm] = useState({
     title: meeting?.title || '',
     purpose: meeting?.purpose || '',
@@ -195,11 +233,13 @@ function MeetingModal({ t, meeting, onClose, onSaved }) {
       if (isEdit) {
         await api(`/api/meetings/${meeting.id}`, { method: 'PUT', body: JSON.stringify(payload) });
         toast('Meeting updated successfully.', 'success');
+        const datesChanged = originalStart !== start.toISOString() || originalEnd !== end.toISOString();
+        onSaved({ notifyReschedule: datesChanged && meeting.status === 'published' });
       } else {
         await api('/api/meetings', { method: 'POST', body: JSON.stringify(payload) });
         toast('Meeting created successfully.', 'success');
+        onSaved({});
       }
-      onSaved();
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -322,7 +362,7 @@ function CsvImport({ meetingId, onDone }) {
         body
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw Error(data.message || data.error || `Upload failed (${r.status})`);
+      if (!r.ok) throw Error(parseApiError(data, `Upload failed (${r.status})`));
       const skippedNote = data.skipped?.length ? `, ${data.skipped.length} row(s) skipped` : '';
       toast(`✓ Added ${data.added} guest${data.added !== 1 ? 's' : ''}${skippedNote}.`, 'success');
       setFile(null);
@@ -335,7 +375,11 @@ function CsvImport({ meetingId, onDone }) {
   };
 
   return (
-    <form className="csv-import" onSubmit={upload}>
+    <div>
+      <a className="template-link" href="/api/templates/guest-import.xlsx" download="guest-list-template.xlsx">
+        <Download size={14} /> Download XLSX template
+      </a>
+      <form className="csv-import" onSubmit={upload}>
       <FileUp size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />
       <input
         type="file"
@@ -346,6 +390,7 @@ function CsvImport({ meetingId, onDone }) {
         {loading ? <Loader2 size={14} className="spinner" /> : 'Import CSV / XLSX'}
       </button>
     </form>
+    </div>
   );
 }
 
@@ -358,6 +403,11 @@ function DetailModal({ meetingId, t, onClose }) {
   const [guestForm, setGuestForm] = useState({ name: '', phone: '', email: '', organization: '', role_title: '' });
   const [sendLoading, setSendLoading] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [showNotify, setShowNotify] = useState(false);
+  const [notifyNote, setNotifyNote] = useState('');
+  const [showCancel, setShowCancel] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
   const refresh = () => api('/api/meetings/' + meetingId).then(setM).catch(err => setLoadError(err.message));
   useEffect(() => { refresh(); }, [meetingId]);
@@ -377,6 +427,8 @@ function DetailModal({ meetingId, t, onClose }) {
   );
 
   const readOnly = new Date(m.end_at) <= new Date();
+  const isCancelled = m.status === 'cancelled';
+  const canManage = !!m.can_manage && !readOnly && !isCancelled;
 
   if (editing) {
     return (
@@ -384,23 +436,25 @@ function DetailModal({ meetingId, t, onClose }) {
         t={t}
         meeting={m}
         onClose={() => setEditing(false)}
-        onSaved={() => { setEditing(false); refresh(); }}
+        onSaved={({ notifyReschedule } = {}) => {
+          setEditing(false);
+          refresh().then(() => {
+            if (notifyReschedule) setShowNotify(true);
+          });
+        }}
       />
     );
   }
 
-  const downloadReport = async () => {
+  const downloadReport = async (format) => {
     try {
-      const r = await fetch(`/api/meetings/${meetingId}/report.csv`, {
-        headers: { Authorization: `Bearer ${localStorage.token}` }
-      });
-      if (!r.ok) throw Error('Download failed. Please sign in again and retry.');
-      const blob = await r.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `${m.reference}-attendance.csv`; a.click();
-      URL.revokeObjectURL(url);
-      toast('Attendance report downloaded.', 'success');
+      const ext = format === 'pdf' ? 'pdf' : 'csv';
+      await downloadBlob(
+        `/api/meetings/${meetingId}/report.${ext}`,
+        `${m.reference}-attendance.${ext}`,
+        localStorage.token
+      );
+      toast(`${format.toUpperCase()} report downloaded.`, 'success');
     } catch (err) {
       toast(err.message, 'error');
     }
@@ -419,6 +473,41 @@ function DetailModal({ meetingId, t, onClose }) {
     }
   };
 
+  const notifyReschedule = async () => {
+    setActionLoading(true);
+    try {
+      const r = await api(`/api/meetings/${meetingId}/notify-reschedule`, {
+        method: 'POST',
+        body: JSON.stringify({ message: notifyNote })
+      });
+      toast(`Reschedule notice sent to ${r.sent} guest(s).`, 'success');
+      setShowNotify(false);
+      setNotifyNote('');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const cancelMeeting = async () => {
+    if (!cancelReason.trim()) { toast('Please provide a cancellation reason.', 'error'); return; }
+    setActionLoading(true);
+    try {
+      const r = await api(`/api/meetings/${meetingId}/cancel`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: cancelReason })
+      });
+      toast(`Meeting cancelled. ${r.sent} guest(s) notified.`, 'success');
+      setShowCancel(false);
+      await refresh();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const addGuest = async (e) => {
     e.preventDefault();
     try {
@@ -430,6 +519,60 @@ function DetailModal({ meetingId, t, onClose }) {
       toast(err.message, 'error');
     }
   };
+
+  if (showNotify) {
+    return (
+      <div className="modal-backdrop">
+        <section className="modal">
+          <div className="modal-head">
+            <div>
+              <div className="eyebrow green">SCHEDULE CHANGE</div>
+              <h2>Notify guests of reschedule</h2>
+            </div>
+            <button className="icon-button" onClick={() => setShowNotify(false)}><X /></button>
+          </div>
+          <p className="muted">Send an updated schedule notice to all guests by email and WhatsApp.</p>
+          <label>Note to guests (optional)
+            <textarea value={notifyNote} onChange={e => setNotifyNote(e.target.value)} placeholder="e.g. Venue unchanged, only the time has moved." />
+          </label>
+          <div className="modal-actions">
+            <button className="secondary" onClick={() => setShowNotify(false)}>Skip for now</button>
+            <button className="primary" onClick={notifyReschedule} disabled={actionLoading}>
+              {actionLoading ? <Loader2 size={16} className="spinner" /> : <Bell size={16} />}
+              Send reschedule notice
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (showCancel) {
+    return (
+      <div className="modal-backdrop">
+        <section className="modal">
+          <div className="modal-head">
+            <div>
+              <div className="eyebrow green">CANCELLATION</div>
+              <h2>Cancel this meeting</h2>
+            </div>
+            <button className="icon-button" onClick={() => setShowCancel(false)}><X /></button>
+          </div>
+          <p className="muted">All invited guests will receive a cancellation notice.</p>
+          <label>Reason for cancellation
+            <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} required placeholder="e.g. Postponed due to official travel" />
+          </label>
+          <div className="modal-actions">
+            <button className="secondary" onClick={() => setShowCancel(false)}>Keep meeting</button>
+            <button className="primary" style={{ background: '#a32d2d' }} onClick={cancelMeeting} disabled={actionLoading}>
+              {actionLoading ? <Loader2 size={16} className="spinner" /> : <Ban size={16} />}
+              Confirm cancellation
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="modal-backdrop">
@@ -445,10 +588,29 @@ function DetailModal({ meetingId, t, onClose }) {
         <div className="detail-meta">
           <span><CalendarDays size={16} />{new Date(m.start_at).toLocaleString()} – {new Date(m.end_at).toLocaleTimeString()}</span>
           <span><MapPin size={16} />{m.location || 'Council venue'}</span>
+          <span className={`badge ${isCancelled ? 'red' : m.status === 'published' ? 'green' : 'gold'}`}>{m.status}</span>
         </div>
 
         {m.purpose && <p className="muted" style={{ marginBottom: 16 }}>{m.purpose}</p>}
-        {readOnly && <div className="notice">This meeting has ended. The record is available for viewing only.</div>}
+        {isCancelled && (
+          <div className="notice-cancel">
+            <strong>Meeting cancelled</strong>
+            {m.cancellation_reason ? ` — ${m.cancellation_reason}` : ''}
+          </div>
+        )}
+        {readOnly && !isCancelled && <div className="notice">This meeting has ended. The record is available for viewing only.</div>}
+        {!canManage && !readOnly && !isCancelled && (
+          <div className="notice notice-blue">You are viewing this meeting in read-only mode. Only the organiser can edit guests or send notices.</div>
+        )}
+
+        {m.attendance && (
+          <div className="detail-stats" style={{ marginTop: 0, marginBottom: 16 }}>
+            <Metric label="Invited" value={m.attendance.invited || 0} />
+            <Metric label="Attended" value={m.attendance.attended || 0} />
+            <Metric label="Absent" value={m.attendance.not_attended || 0} />
+            <Metric label="Rate" value={`${m.attendance.percentage || 0}%`} />
+          </div>
+        )}
 
         <div className="detail-stats">
           <Metric label="Confirmed" value={m.counts?.confirmed || 0} />
@@ -457,16 +619,29 @@ function DetailModal({ meetingId, t, onClose }) {
           <Metric label="No response" value={m.counts?.no_response || 0} />
         </div>
 
-        <div className="modal-actions">
-          <button className="secondary" onClick={downloadReport}>
-            <Download size={16} />{t.report}
+        <div className="modal-actions report-actions">
+          <button className="secondary" onClick={() => downloadReport('csv')}>
+            <Download size={16} />CSV report
           </button>
-          {!readOnly && (
+          <button className="secondary" onClick={() => downloadReport('pdf')}>
+            <Download size={16} />PDF report
+          </button>
+          {canManage && (
             <button className="secondary" onClick={() => setEditing(true)}>
               <Settings2 size={16} /> Edit meeting
             </button>
           )}
-          {!readOnly && (
+          {canManage && m.status === 'published' && (
+            <button className="secondary" onClick={() => setShowNotify(true)}>
+              <Bell size={16} /> Notify reschedule
+            </button>
+          )}
+          {canManage && (
+            <button className="secondary" onClick={() => setShowCancel(true)} style={{ color: '#a32d2d' }}>
+              <Ban size={16} /> Cancel meeting
+            </button>
+          )}
+          {canManage && (
             <button className="primary" onClick={sendInvites} disabled={sendLoading}>
               {sendLoading ? <Loader2 size={16} className="spinner" /> : <Send size={16} />}
               {t.send}
@@ -482,8 +657,11 @@ function DetailModal({ meetingId, t, onClose }) {
                 <div className="avatar small">{g.name[0]}</div>
                 <span>
                   {g.name}
-                  <small>{g.organization || g.role_title || 'Participant'}</small>
+                  <small>
+                    {[g.organization || g.role_title, g.phone, g.email].filter(Boolean).join(' · ') || 'Participant'}
+                  </small>
                 </span>
+                <span className={`badge ${g.attended ? 'green' : 'grey'}`}>{g.attended ? 'attended' : 'not yet'}</span>
                 <span className={`badge ${g.status === 'confirmed' ? 'green' : g.status === 'declined' ? 'grey' : 'gold'}`}>
                   {g.status}
                 </span>
@@ -493,7 +671,7 @@ function DetailModal({ meetingId, t, onClose }) {
         )}
 
         {/* Add guest manually */}
-        {!readOnly && (
+        {canManage && (
           <form className="guest-add-form" onSubmit={addGuest}>
             <h3>Add guest manually</h3>
             <div className="form-grid compact-grid">
@@ -508,18 +686,18 @@ function DetailModal({ meetingId, t, onClose }) {
         )}
 
         {/* CSV import */}
-        {!readOnly && (
+        {canManage && (
           <div style={{ marginTop: 14 }}>
-            <p className="section-label">Or import from CSV</p>
+            <p className="section-label">Or import from file</p>
             <p className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
-              Columns: <code>name</code>, <code>phone</code>, <code>email</code>, <code>organization</code>, <code>role_title</code> (CSV or XLSX)
+              Download the XLSX template, fill in guests, then upload CSV or XLSX.
             </p>
             <CsvImport meetingId={meetingId} onDone={refresh} />
           </div>
         )}
 
         {/* QR Code — only for upcoming meetings */}
-        {!readOnly && <QrSection meetingId={meetingId} t={t} />}
+        {canManage && <QrSection meetingId={meetingId} t={t} />}
       </section>
     </div>
   );
@@ -609,6 +787,217 @@ function Dashboard({ lang, user, view = 'dashboard' }) {
   );
 }
 
+/* ── Admin Panel ────────────────────────────────────────── */
+
+function AdminPanel({ user }) {
+  const toast = useToast();
+  const [tab, setTab] = useState('accounts');
+  const [accounts, setAccounts] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [integrations, setIntegrations] = useState(null);
+  const [waPhone, setWaPhone] = useState('');
+  const [waMessage, setWaMessage] = useState('');
+  const [waTesting, setWaTesting] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = () => {
+    setLoading(true);
+    Promise.all([
+      api('/api/admin/accounts').then(setAccounts).catch(e => toast(e.message, 'error')),
+      api('/api/admin/attendance').then(setAttendance).catch(() => {}),
+      api('/api/admin/audit-logs').then(setAuditLogs).catch(() => {}),
+      api('/api/admin/integrations').then(setIntegrations).catch(() => setIntegrations(null))
+    ]).finally(() => setLoading(false));
+  };
+  useEffect(() => { refresh(); }, []);
+
+  const updateAccount = async (id, patch) => {
+    try {
+      await api(`/api/admin/accounts/${id}`, { method: 'PUT', body: JSON.stringify(patch) });
+      toast('Account updated.', 'success');
+      refresh();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  };
+
+  const testWhatsApp = async (e) => {
+    e.preventDefault();
+    if (!waPhone.trim()) { toast('Enter a WhatsApp number to test.', 'error'); return; }
+    setWaTesting(true);
+    try {
+      const r = await api('/api/admin/integrations/whatsapp-test', {
+        method: 'POST',
+        body: JSON.stringify({ phone: waPhone.trim(), message: waMessage.trim() })
+      });
+      if (r.sent) toast(`WhatsApp test sent to ${r.normalized_to || waPhone}.`, 'success');
+      else toast(r.detail || r.reason || 'WhatsApp test failed.', 'error');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setWaTesting(false);
+    }
+  };
+
+  if (user?.role !== 'admin') {
+    return <div className="empty">Administrator access required.</div>;
+  }
+
+  const tabs = [
+    ['accounts', 'Staff accounts'],
+    ['attendance', 'Attendance'],
+    ['integrations', 'Integrations'],
+    ['audit', 'Audit log']
+  ];
+
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <div className="eyebrow green">COUNCIL ADMINISTRATION</div>
+          <h1>System administration</h1>
+          <p className="muted">Manage staff accounts, attendance, messaging integrations, and audit activity.</p>
+        </div>
+      </div>
+
+      <div className="admin-tabs">
+        {tabs.map(([id, label]) => (
+          <button key={id} type="button" className={`admin-tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="empty"><Loader2 size={22} className="spinner" style={{ color: 'var(--green)' }} /></div>
+      ) : tab === 'accounts' ? (
+        <section className="panel">
+          <div className="panel-head"><h2>Staff accounts</h2></div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                {accounts.map(a => (
+                  <tr key={a.id}>
+                    <td><strong>{a.name}</strong><small>{a.phone}</small></td>
+                    <td>{a.email}</td>
+                    <td>
+                      <select value={a.role} onChange={e => updateAccount(a.id, { role: e.target.value })}>
+                        <option value="organizer">Organizer</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </td>
+                    <td><span className={`badge ${a.active ? 'green' : 'grey'}`}>{a.status}</span></td>
+                    <td>
+                      <button className="text-button" onClick={() => updateAccount(a.id, { active: !a.active })}>
+                        {a.active ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : tab === 'attendance' ? (
+        <section className="panel">
+          <div className="panel-head"><h2>Attendance records</h2><p className="muted">{attendance.length} check-ins recorded</p></div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Meeting</th><th>Participant</th><th>Phone</th><th>Checked in</th><th>Status</th></tr></thead>
+              <tbody>
+                {attendance.length === 0
+                  ? <tr><td colSpan={5} className="muted">No attendance records yet.</td></tr>
+                  : attendance.map((row, i) => (
+                    <tr key={i}>
+                      <td><strong>{row.meeting_title || row.meeting_reference}</strong><small>{row.meeting_reference}</small></td>
+                      <td>{row.guest_name || `Guest #${row.participant_id}`}</td>
+                      <td>{row.guest_phone || '—'}</td>
+                      <td>{row.checked_in_at ? new Date(row.checked_in_at).toLocaleString() : '—'}</td>
+                      <td><span className={`badge ${row.attended ? 'green' : 'grey'}`}>{row.attended ? 'attended' : 'pending'}</span></td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : tab === 'integrations' ? (
+        <section className="panel">
+          <div className="panel-head">
+            <h2><MessageCircle size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} />Messaging integrations</h2>
+          </div>
+          <div style={{ padding: '20px 24px' }}>
+            {integrations ? (
+              <div className="metric-grid" style={{ marginBottom: 20 }}>
+                <div className="metric">
+                  <div className="metric-icon"><MessageCircle size={18} /></div>
+                  <div>
+                    <span>WhatsApp</span>
+                    <strong>{integrations.configured ? 'Configured' : 'Not configured'}</strong>
+                  </div>
+                </div>
+                <div className="metric">
+                  <div className="metric-icon"><ShieldCheck size={18} /></div>
+                  <div>
+                    <span>Enabled</span>
+                    <strong>{integrations.enabled ? 'Yes' : 'No'}</strong>
+                  </div>
+                </div>
+                <div className="metric">
+                  <div className="metric-icon"><Send size={18} /></div>
+                  <div>
+                    <span>Template</span>
+                    <strong>{integrations.template || 'hello_world'}</strong>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="muted">Could not load integration status.</p>
+            )}
+            <p className="muted" style={{ marginBottom: 16 }}>
+              Test WhatsApp delivery to a Meta sandbox recipient. Add your number in Meta → WhatsApp → API Setup first.
+            </p>
+            <form className="account-form" onSubmit={testWhatsApp} style={{ maxWidth: 480 }}>
+              <label>Test phone number
+                <input value={waPhone} onChange={e => setWaPhone(e.target.value)} placeholder="0757219157" required />
+              </label>
+              <label>Optional message
+                <textarea value={waMessage} onChange={e => setWaMessage(e.target.value)} placeholder="BMC Meetings test message" />
+              </label>
+              <button className="primary" disabled={waTesting}>
+                {waTesting ? <Loader2 size={16} className="spinner" /> : <><MessageCircle size={16} /> Send WhatsApp test</>}
+              </button>
+            </form>
+            <p className="muted" style={{ marginTop: 16, fontSize: 12 }}>
+              Guest import template: <a className="template-link" href="/api/templates/guest-import.xlsx" download="guest-list-template.xlsx">Download XLSX</a>
+            </p>
+          </div>
+        </section>
+      ) : (
+        <section className="panel">
+          <div className="panel-head"><h2>Audit log</h2></div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Detail</th></tr></thead>
+              <tbody>
+                {auditLogs.slice(0, 100).map(row => (
+                  <tr key={row.id}>
+                    <td>{new Date(row.at).toLocaleString()}</td>
+                    <td>{row.email}</td>
+                    <td><span className="badge blue">{row.action}</span></td>
+                    <td>{row.detail}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+    </>
+  );
+}
+
 /* ── Account Settings ───────────────────────────────────── */
 
 function Account({ lang, user, onBack, onUpdated }) {
@@ -624,9 +1013,11 @@ function Account({ lang, user, onBack, onUpdated }) {
   const [developmentOtp, setDevelopmentOtp] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [auditLogs, setAuditLogs] = useState([]);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
 
   useEffect(() => {
     api('/api/me')
@@ -636,18 +1027,17 @@ function Account({ lang, user, onBack, onUpdated }) {
         const freshEmail = p.email || user?.email || '';
         setEmail(freshEmail);
         setCurrentEmail(freshEmail);
+        setEmailVerified(!!p.emailVerified);
         if (p.emailVerified) {
           setEmailStage('details');
           setEmailCode('');
           setPendingEmail('');
           setDevelopmentOtp('');
         }
-        if (p.role === 'admin') {
-          api('/api/admin/audit-logs').then(setAuditLogs).catch(() => {});
-        }
       })
       .catch(err => toast(err.message, 'error'))
       .finally(() => setLoading(false));
+    api('/api/auth/config').then(c => setWhatsappEnabled(!!c.whatsapp_enabled)).catch(() => {});
   }, []);
 
   const save = async (e) => {
@@ -717,7 +1107,7 @@ function Account({ lang, user, onBack, onUpdated }) {
 
   const changePassword = async (e) => {
     e.preventDefault();
-    setSaving(true);
+    setSavingPassword(true);
     try {
       await api('/api/me/password-change', {
         method: 'POST',
@@ -729,7 +1119,7 @@ function Account({ lang, user, onBack, onUpdated }) {
     } catch (err) {
       toast(err.message, 'error');
     } finally {
-      setSaving(false);
+      setSavingPassword(false);
     }
   };
 
@@ -750,7 +1140,12 @@ function Account({ lang, user, onBack, onUpdated }) {
         : (
           <form className="account-form" onSubmit={save}>
             <label>{t.name || 'Full name'}<input value={name} onChange={e => setName(e.target.value)} required /></label>
-            <label>{t.email}<input type="email" value={email} onChange={e => setEmail(e.target.value)} required disabled={emailStage === 'verify'} /></label>
+            <label>{t.email}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required disabled={emailStage === 'verify'} style={{ flex: 1 }} />
+                {emailVerified && <span className="badge green">Verified</span>}
+              </div>
+            </label>
             {emailStage === 'verify' && (
               <label>
                 {t.emailVerification}
@@ -772,40 +1167,26 @@ function Account({ lang, user, onBack, onUpdated }) {
                 </button>
               </label>
             )}
-            <label>{t.phone}<input value={phone} onChange={e => setPhone(e.target.value)} placeholder="0757219157" /></label>
+            <label>{t.phone}
+              <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="0757219157" />
+              <small className="muted">Used for WhatsApp invitations{whatsappEnabled ? ' (OTP at registration enabled)' : ''}.</small>
+            </label>
             <label>Role<input value={user?.role || ''} disabled /></label>
             <button className="primary" disabled={saving}>
               {saving ? <Loader2 size={16} className="spinner" /> : <>{t.saveAccount}<ChevronRight size={16} /></>}
             </button>
           </form>
         )}
-      <form className="account-form" onSubmit={changePassword} style={{ marginTop: 28 }}>
-        <div className="eyebrow green">SECURITY</div>
-        <h2 style={{ margin: '8px 0 16px', fontSize: 18 }}>Change password</h2>
-        <label>Current password<input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required autoComplete="current-password" /></label>
-        <label>New password<input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={8} required autoComplete="new-password" /></label>
-        <button className="secondary" disabled={saving}>Update password</button>
-      </form>
-      {user?.role === 'admin' && auditLogs.length > 0 && (
-        <section style={{ marginTop: 32 }}>
-          <div className="eyebrow green">AUDIT</div>
-          <h2 style={{ margin: '8px 0 12px', fontSize: 18 }}>Recent activity</h2>
-          <div className="table-wrap">
-            <table>
-              <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Detail</th></tr></thead>
-              <tbody>
-                {auditLogs.slice(0, 50).map(row => (
-                  <tr key={row.id}>
-                    <td>{new Date(row.at).toLocaleString()}</td>
-                    <td>{row.email}</td>
-                    <td>{row.action}</td>
-                    <td>{row.detail}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+      {!loading && (
+        <form className="account-form" onSubmit={changePassword} style={{ marginTop: 28 }}>
+          <div className="eyebrow green">SECURITY</div>
+          <h2 style={{ margin: '8px 0 16px', fontSize: 18 }}>Change password</h2>
+          <label>Current password<input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required autoComplete="current-password" /></label>
+          <label>New password<input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={8} required autoComplete="new-password" /></label>
+          <button className="secondary" disabled={savingPassword}>
+            {savingPassword ? <Loader2 size={16} className="spinner" /> : 'Update password'}
+          </button>
+        </form>
       )}
     </section>
   );
@@ -862,7 +1243,7 @@ function Rsvp({ lang, setLang }) {
         setSubmitted(true);
         toast(`${responseLabel}. Thank you.`, 'success');
       } else {
-        const errMsg = body.message || body.detail || body.error || 'The response could not be saved. Please try again.';
+        const errMsg = parseApiError(body, 'The response could not be saved. Please try again.');
         toast(errMsg, 'error');
       }
     } catch {
@@ -894,6 +1275,13 @@ function Rsvp({ lang, setLang }) {
           {status === 'declined' && (
             <label>{t.reason}<textarea value={reason} onChange={e => setReason(e.target.value)} required /></label>
           )}
+          {status === 'declined' && /leave|sick|medical|maternity|annual/i.test(reason) && (
+            <div className="notice notice-blue">
+              {lang === 'en'
+                ? 'If this is official leave, please also follow your department HR leave procedures.'
+                : 'Ikiwa hii ni likizo rasmi, tafadhali fuata taratibu za HR za idara yako.'}
+            </div>
+          )}
           <button className="primary full" disabled={!status || loading || submitted} onClick={submit}>
             {loading ? <Loader2 size={17} className="spinner" /> : <>{t.submit}<ChevronRight size={17} /></>}
           </button>
@@ -922,6 +1310,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [account, setAccount] = useState(false);
+  const [adminView, setAdminView] = useState(false);
   const [view, setView] = useState('dashboard');
   const toast = useToast();
 
@@ -964,10 +1353,16 @@ export default function App() {
   const current = user || { name: 'Administrator', role: 'admin' };
 
   const handleLogout = async () => {
-    try {
-      await api('/api/auth/logout', { method: 'POST' });
-    } catch { /* ignore */ }
+    const token = localStorage.token;
     localStorage.removeItem('token');
+    try {
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+        });
+      }
+    } catch { /* ignore */ }
     history.replaceState(null, '', '/');
     setAccount(false);
     setView('dashboard');
@@ -981,13 +1376,16 @@ export default function App() {
       <Shell
       lang={lang} setLang={setLang} user={current}
       onLogout={handleLogout}
-      view={account ? 'account' : view}
-      onNavigate={next => { setAccount(false); setView(next); }}
-      onAccount={() => { setAccount(true); setView('dashboard'); }}
+      view={adminView ? 'admin' : account ? 'account' : view}
+      onNavigate={next => { setAccount(false); setAdminView(false); setView(next); }}
+      onAccount={() => { setAccount(true); setAdminView(false); setView('dashboard'); }}
+      onAdmin={() => { setAdminView(true); setAccount(false); setView('dashboard'); }}
     >
-      {account
-        ? <Account lang={lang} user={current} onBack={() => setAccount(false)} onUpdated={email => setUser(prev => ({ ...(prev || current), email }))} />
-        : <Dashboard lang={lang} user={current} view={view} />
+      {adminView
+        ? <AdminPanel user={current} />
+        : account
+          ? <Account lang={lang} user={current} onBack={() => setAccount(false)} onUpdated={email => setUser(prev => ({ ...(prev || current), email }))} />
+          : <Dashboard lang={lang} user={current} view={view} />
       }
     </Shell>
     </>

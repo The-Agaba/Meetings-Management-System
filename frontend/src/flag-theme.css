@@ -1,6 +1,23 @@
-:root{--black:#101614}
-.brandbar{border-top:5px solid transparent;border-image:linear-gradient(90deg,var(--green) 0 34%,var(--gold) 34% 46%,var(--black) 46% 57%,var(--gold) 57% 69%,var(--sky) 69% 100%) 1}
-.panel-head{border-top:2px solid var(--gold)}
+:root{--black:#101614;--yellow:#f5c518;--blue:#418fde}
+.brandbar{border-top:5px solid transparent;border-image:linear-gradient(90deg,var(--green) 0 34%,var(--gold) 34% 46%,var(--black) 46% 57%,var(--gold) 57% 69%,var(--sky) 69% 100%) 1;box-shadow:0 2px 12px rgba(16,32,25,.06)}
+.panel-head{border-top:3px solid var(--gold);background:linear-gradient(180deg,#fff,#fbfcfb)}
+.sidebar{border-right:1px solid var(--line);border-left:4px solid var(--green);background:linear-gradient(180deg,#f8faf8,#f2f7f4)}
+.side-link.active{border-left:3px solid var(--gold);margin-left:-3px;padding-left:15px}
+.metric:nth-child(1) .metric-icon{background:#e4f2e9;color:var(--green)}
+.metric:nth-child(2) .metric-icon{background:#fdf5dc;color:#856800}
+.metric:nth-child(3) .metric-icon{background:#e8f1fb;color:var(--sky)}
+.primary{box-shadow:0 4px 14px rgba(8,127,69,.22)}
+.badge.blue{background:#e8f1fb;color:var(--sky)}
+.badge.red{background:#fce8e8;color:#a32d2d}
+.badge.black{background:#eef0ef;color:var(--black)}
+.notice-blue{background:#e8f1fb;color:#1e3a5f;border-left-color:var(--sky)}
+.notice-cancel{background:#fce8e8;color:#7f1d1d;border-left:4px solid #a32d2d;padding:11px 13px;font-size:13px;border-radius:0 5px 5px 0;margin-bottom:14px}
+.admin-tabs{display:flex;gap:8px;margin:0 0 18px;flex-wrap:wrap}
+.admin-tab{border:1px solid var(--line);background:#fff;color:var(--muted);padding:9px 14px;border-radius:7px;font-weight:700;font-size:12px}
+.admin-tab.active{background:var(--green);color:#fff;border-color:var(--green)}
+.report-actions{display:flex;gap:8px;flex-wrap:wrap}
+.template-link{display:inline-flex;align-items:center;gap:6px;color:var(--sky);font-size:12px;font-weight:700;text-decoration:none;margin-bottom:8px}
+.template-link:hover{color:var(--green-dark);text-decoration:underline}
 .auth-link{display:flex;align-items:center;justify-content:center;gap:4px;margin-top:18px;color:var(--green);font-size:13px;font-weight:750;text-decoration:none}
 .auth-link:hover{text-decoration:underline}
 .input-wrap input{flex:1;min-width:0;width:100%}

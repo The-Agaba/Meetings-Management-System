@@ -14,7 +14,7 @@ mvn -f backend\pom.xml spring-boot:run
 
 Open `http://127.0.0.1:8000`. PostgreSQL is required and the administrator is seeded from the environment.
 
-Organizer registration is available at `/register.html`. Staff sign in with email and password at `/`. Password reset is available from the sign-in page. Configure SMTP and WhatsApp Cloud API values in `.env` before testing OTP and invitation delivery. The Organizer opens Live Attendance from a meeting detail, while Participants use the Personal Sign-In Link included in their invitation.
+Organizer registration is available at `/register.html` (email OTP verification once). Staff sign in with **email and password only** at `/` — no login OTP. Password reset uses a one-time email code from the sign-in page. Guest import templates: `GET /api/templates/guest-import.xlsx` or `templates/guest-list-template.csv`. Meeting reports export as CSV or PDF. Reschedule and cancellation notices email/WhatsApp all guests.
 
 Run tests:
 

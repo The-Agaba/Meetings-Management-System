@@ -38,14 +38,16 @@ public class AuditService {
 
     public List<Map<String, Object>> findRecent() {
         return logs.findTop200ByOrderByCreatedAtDesc().stream()
-            .map(entry -> Map.<String, Object>of(
-                "id", entry.id,
-                "email", Objects.toString(entry.email, ""),
-                "action", entry.action,
-                "detail", Objects.toString(entry.detail, ""),
-                "ip", Objects.toString(entry.ipAddress, ""),
-                "at", entry.createdAt
-            ))
+            .map(entry -> {
+                Map<String, Object> row = new java.util.LinkedHashMap<>();
+                row.put("id", entry.id);
+                row.put("email", Objects.toString(entry.email, ""));
+                row.put("action", Objects.toString(entry.action, ""));
+                row.put("detail", Objects.toString(entry.detail, ""));
+                row.put("ip", Objects.toString(entry.ipAddress, ""));
+                row.put("at", entry.createdAt);
+                return row;
+            })
             .toList();
     }
 }

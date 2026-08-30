@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Clock, Mail, Phone, ShieldCheck, Eye, EyeOff
 import { Brand } from './ui.jsx';
 import { copy, api } from './utils.js';
 import OtpBoxes from './OtpBoxes.jsx';
+import OfflineBanner from './OfflineBanner.jsx';
 import { useToast } from './toast.jsx';
 
 const RESEND_COOLDOWN = 60;
@@ -133,6 +134,7 @@ export default function Register({ lang, setLang }) {
 
   return (
     <>
+      <OfflineBanner />
       <Brand lang={lang} setLang={setLang} />
       <main className="auth-shell">
         <section className="auth-card">
@@ -145,7 +147,7 @@ export default function Register({ lang, setLang }) {
             </>
           ) : (
             <>
-              <p className="muted">{stage === 'details' ? t.registrationNote : whatsapp ? t.otpBoth : t.otpEmail}</p>
+              <p className="muted">{stage === 'details' ? 'Create your organiser account. Email OTP verification is required once before you can sign in with your password.' : whatsapp ? t.otpBoth : t.otpEmail}</p>
               <form onSubmit={submit}>
                 {stage === 'details' ? (
                   <>
