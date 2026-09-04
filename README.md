@@ -1,10 +1,49 @@
-# Bukoba Municipal Council Meeting Management and Notification System
+# Bukoba Municipal Council Meetings
 
-Production-oriented bilingual PWA for meeting creation, guest management, notifications, RSVP capture, calendar links, and reporting. The backend is Spring Boot with PostgreSQL.
+> A bilingual, mobile-first meeting workspace for planning, invitations, RSVP, attendance, and official records.
+
+![Java 21](https://img.shields.io/badge/Java-21-1f6feb?logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/API-Spring%20Boot-6db33f?logo=springboot&logoColor=white)
+![React](https://img.shields.io/badge/UI-React%20%2B%20Vite-61dafb?logo=react&logoColor=111)
+![Languages](https://img.shields.io/badge/UI-English%20%7C%20Kiswahili-087f45)
+
+The system gives council staff one place to create meetings, manage guests, send email and WhatsApp invitations, collect RSVP responses, run QR attendance check-in, and download records. Participants use a secure link and do not need an account.
+
+## What it does
+
+```mermaid
+flowchart LR
+	A[Staff creates meeting] --> B[Add guests manually or CSV/XLSX]
+	B --> C[Send email and WhatsApp invitations]
+	C --> D[Participant opens secure link]
+	D --> E[Confirm, decline, or tentative]
+	E --> F[Live counts and audit trail]
+	F --> G[QR check-in and CSV/PDF reports]
+```
+
+| Area | Available now |
+|---|---|
+| Staff access | Registration, email OTP verification, password login, password reset, roles, sessions |
+| Meetings | Draft and published meetings, ownership rules, editing, rescheduling, cancellation |
+| Guests | Manual entry, CSV/XLSX import, invitation status, RSVP tracking |
+| Messaging | SMTP email and optional Meta WhatsApp Cloud API with templates |
+| Attendance | Rotating meeting QR code, personal participant links, duplicate check-in protection |
+| Administration | Staff management, attendance overview, audit log, integration status, system log download |
+| Records | Meeting CSV/PDF reports, staff/attendance/audit CSV exports, full application log download |
+| Experience | Responsive PWA shell, English and Kiswahili UI, offline status banner |
 
 ## Quick start
 
-Prerequisites: Java 21, Maven, PostgreSQL 15+, and a modern browser.
+### Prerequisites
+
+- Java 21
+- Maven
+- PostgreSQL 15 or newer, or Docker Desktop
+- Node.js and npm for frontend development
+- A modern browser
+
+<details>
+<summary>Start the local stack</summary>
 
 ```powershell
 Copy-Item .env.example .env
@@ -12,30 +51,91 @@ docker compose up -d postgres
 mvn -f backend\pom.xml spring-boot:run
 ```
 
-Open `http://127.0.0.1:8000`. PostgreSQL is required and the administrator is seeded from the environment.
+Open `http://127.0.0.1:8000`.
 
-Organizer registration is available at `/register.html` (email OTP verification once). Staff sign in with **email and password only** at `/` — no login OTP. Password reset uses a one-time email code from the sign-in page. Guest import templates: `GET /api/templates/guest-import.xlsx` or `templates/guest-list-template.csv`. Meeting reports export as CSV or PDF. Reschedule and cancellation notices email/WhatsApp all guests.
+The administrator is seeded from `ADMIN_EMAIL` and `ADMIN_PASSWORD`. Change both values before any shared or production deployment.
+</details>
 
-Run tests:
+<details>
+<summary>Run the frontend separately</summary>
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Vite runs on port `5173` and proxies `/api` to the backend on port `8000`.
+
+Build the production frontend with:
+
+```powershell
+npm run build
+```
+</details>
+
+<details>
+<summary>Useful checks</summary>
 
 ```powershell
 mvn -f backend\pom.xml test
+mvn -f backend\pom.xml clean package
 ```
 
-The frontend is served as static files by any HTTPS web server. The React production build is generated in `frontend/dist`. During development, Vite proxies `/api` to the Spring Boot backend.
+The packaged backend JAR is written to `backend/target` and the frontend build is written to `frontend/dist`.
+</details>
+
+## First-use path
+
+1. Sign in as the seeded administrator.
+2. Open **Administration** and confirm staff accounts and integration status.
+3. Create a meeting and add guests manually or with the XLSX template.
+4. Publish the meeting and send invitations.
+5. Monitor RSVP responses from the meeting detail view.
+6. Display the rotating attendance QR code during the meeting.
+7. Download the meeting report, attendance CSV, audit CSV, or full system log when needed.
+
+Participants open `/rsvp.html?token=...` for RSVP and `/attendance.html?token=...` for QR attendance. No participant account is required.
+
+## WhatsApp setup
+
+WhatsApp is optional and disabled by default. Add the Meta Cloud API values to `.env`, restart the backend, then test delivery from **Administration > Integrations**.
+
+```env
+WHATSAPP_ENABLED=true
+WHATSAPP_API_URL=https://graph.facebook.com/v21.0
+WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
+WHATSAPP_ACCESS_TOKEN=your_access_token
+WHATSAPP_USE_TEMPLATES=true
+WHATSAPP_TEMPLATE_NAME=hello_world
+WHATSAPP_TEMPLATE_LANGUAGE=en_US
+```
+
+See [docs/whatsapp-test-setup.md](docs/whatsapp-test-setup.md) for Meta test recipients, templates, phone formatting, and production notes.
 
 ## Repository map
 
-- `backend`: Spring Boot API, PostgreSQL persistence, validation, notification and calendar adapters
-- `frontend`: React/Vite installable PWA shell, dashboard, RSVP page, and localization resources
-- `docs`: proposal, SRS, deployment, API, schema, manuals, QA and handover notes
-- `templates`: CSV and XLSX guest import templates plus message templates
-- `frontend/assets/official`: official Coat of Arms and BMC logo supplied by authorised offices
+```text
+backend/       Spring Boot API, persistence, security, reports, integrations
+frontend/      React/Vite PWA, staff dashboard, RSVP, attendance pages
+docs/          API, requirements, deployment, QA, manuals, and handover
+templates/     Guest import and notification templates
+```
 
-## Important production inputs
+## Documentation guide
 
-The repository contains no invented official emblems. Place authorised high-resolution files at `frontend/assets/official/tanzania-coat-of-arms.svg` and `frontend/assets/official/bukoba-municipal-council-logo.svg`. See `docs/environment-configuration.md` and `docs/deployment-guide.md`.
+- [API reference](docs/api-reference.md)
+- [Environment configuration](docs/environment-configuration.md)
+- [Deployment guide](docs/deployment-guide.md)
+- [Database schema](docs/database-schema.md)
+- [English and Kiswahili user manual](docs/user-manual-en-sw.md)
+- [Test plan](docs/test-plan.md)
+- [Future ideas and scope notes](docs/proposal.md#future-ideas)
 
-## Default technology decision
+## Branding and production readiness
 
-Spring Boot 3, Java 21, Spring Data JPA, PostgreSQL, signed participant tokens, staff session tokens, and resource-file driven English/Swahili localization. Third-party providers are configured behind integration boundaries and fall back to recorded delivery in local mode.
+Use only council-approved Coat of Arms and Bukoba Municipal Council logo assets. Configure HTTPS, production database credentials, SMTP, WhatsApp credentials, backups, and `PUBLIC_BASE_URL` before go-live. Never commit `.env` or provider tokens.
+
+## Future ideas
+
+The following items appeared in earlier planning material but are not implemented in the current application: Google Calendar and Microsoft Graph OAuth, automatic ICS links, calendar conflict warnings, configurable reminders, SMS fallback, historical analytics, Director read-only dashboards, advanced duplicate/import review, bilingual generated reports, and full provider webhook orchestration. They are retained as a backlog in the project proposal rather than presented as current functionality.

@@ -12,6 +12,7 @@ import LoginOtp from './LoginOtp.jsx';
 import OtpBoxes from './OtpBoxes.jsx';
 import OfflineBanner from './OfflineBanner.jsx';
 import { useToast } from './toast.jsx';
+import { uiText } from './i18n.js';
 
 async function downloadBlob(path, filename, token) {
   const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
@@ -25,16 +26,44 @@ async function downloadBlob(path, filename, token) {
   URL.revokeObjectURL(url);
 }
 
+function downloadText(content, filename, type = 'text/plain') {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function csvValue(value) {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`;
+}
+
+function downloadCsv(rows, columns, filename) {
+  const csv = [columns.map(column => csvValue(column.label)).join(','), ...rows.map(row => columns.map(column => csvValue(row[column.key])).join(','))].join('\n');
+  downloadText(csv, filename, 'text/csv;charset=utf-8');
+}
+
+function normalizeTanzaniaPhone(value) {
+  const phone = value.trim();
+  if (!phone) return '';
+  if (/^0\d{9}$/.test(phone)) return `+255${phone.slice(1)}`;
+  if (/^\+255\d{9}$/.test(phone)) return phone;
+  throw new Error('Use a Tanzanian number in the format 07******** or +2557********.');
+}
+
 /* ── Layout Shell ───────────────────────────────────────── */
 
 function Shell({ lang, setLang, user, onLogout, children, onAccount, onAdmin, view, onNavigate }) {
   const t = copy[lang];
+  const text = uiText(lang);
   return (
     <>
       <Brand lang={lang} setLang={setLang} />
       <div className="app-shell">
-        <aside className="sidebar" aria-label="Main navigation">
-          <div className="side-label">MAIN MENU</div>
+        <aside className="sidebar" aria-label={text.mainNavigation}>
+          <div className="side-label">{text.mainMenu}</div>
           <button
             className={`side-link ${view === 'dashboard' ? 'active' : ''}`}
             onClick={() => onNavigate('dashboard')}
@@ -52,11 +81,11 @@ function Shell({ lang, setLang, user, onLogout, children, onAccount, onAdmin, vi
               className={`side-link ${view === 'admin' ? 'active' : ''}`}
               onClick={() => onAdmin()}
             >
-              <UserCog size={17} />Administration
+              <UserCog size={17} />{text.administration}
             </button>
           )}
           <div className="side-spacer" />
-          <div className="side-label">ACCOUNT</div>
+          <div className="side-label">{text.account}</div>
           <button
             className={`side-link ${view === 'account' ? 'active' : ''}`}
             onClick={() => onAccount()}
@@ -69,14 +98,14 @@ function Shell({ lang, setLang, user, onLogout, children, onAccount, onAdmin, vi
           <div className="user-chip">
             <div className="avatar">{(user?.name || 'A')[0]}</div>
             <div>
-              <strong>{user?.name || 'Administrator'}</strong>
-              <small>{user?.role || 'Staff'}</small>
+              <strong>{user?.name || text.administration}</strong>
+              <small>{user?.role || text.staff}</small>
             </div>
           </div>
         </aside>
         <main className="content">{children}</main>
       </div>
-      <nav className="mobile-nav" aria-label="Mobile navigation">
+      <nav className="mobile-nav" aria-label={text.mobileNavigation}>
         <button
           type="button"
           className={`mobile-nav-link ${view === 'dashboard' ? 'active' : ''}`}
@@ -100,7 +129,7 @@ function Shell({ lang, setLang, user, onLogout, children, onAccount, onAdmin, vi
             onClick={() => onAdmin()}
           >
             <UserCog size={20} />
-            <span>Admin</span>
+            <span>{text.admin}</span>
           </button>
         )}
         <button
@@ -157,7 +186,7 @@ function MeetingTable({ rows, t, onSelect }) {
             <th>{t.title}</th>
             <th>{t.date}</th>
             <th>{t.location}</th>
-            <th>Guests</th>
+            <th>{t.guests}</th>
             <th>{t.status}</th>
             <th></th>
           </tr>
@@ -201,8 +230,9 @@ function toLocalInput(iso) {
   return new Date(iso).toISOString().slice(0, 16);
 }
 
-function MeetingModal({ t, meeting, onClose, onSaved }) {
+function MeetingModal({ lang, t, meeting, onClose, onSaved }) {
   const toast = useToast();
+  const text = uiText(lang);
   const isEdit = !!meeting;
   const originalStart = meeting?.start_at;
   const originalEnd = meeting?.end_at;
@@ -226,19 +256,19 @@ function MeetingModal({ t, meeting, onClose, onSaved }) {
     e.preventDefault();
     const start = new Date(form.start_at);
     const end = new Date(form.end_at);
-    if (!isEdit && start <= new Date()) { toast('Meeting start must be in the future.', 'error'); return; }
-    if (end <= start) { toast('Meeting end must be after the start time.', 'error'); return; }
+    if (!isEdit && start <= new Date()) { toast(text.startFuture, 'error'); return; }
+    if (end <= start) { toast(text.endAfterStart, 'error'); return; }
     setLoading(true);
     try {
       const payload = { ...form, start_at: start.toISOString(), end_at: end.toISOString() };
       if (isEdit) {
         await api(`/api/meetings/${meeting.id}`, { method: 'PUT', body: JSON.stringify(payload) });
-        toast('Meeting updated successfully.', 'success');
+        toast(text.meetingUpdated, 'success');
         const datesChanged = originalStart !== start.toISOString() || originalEnd !== end.toISOString();
         onSaved({ notifyReschedule: datesChanged && meeting.status === 'published' });
       } else {
         await api('/api/meetings', { method: 'POST', body: JSON.stringify(payload) });
-        toast('Meeting created successfully.', 'success');
+        toast(text.meetingCreated, 'success');
         onSaved({});
       }
     } catch (err) {
@@ -253,8 +283,8 @@ function MeetingModal({ t, meeting, onClose, onSaved }) {
       <section className="modal">
         <div className="modal-head">
           <div>
-            <div className="eyebrow green">{isEdit ? 'EDIT RECORD' : 'NEW RECORD'}</div>
-            <h2>{isEdit ? 'Edit meeting' : t.create}</h2>
+            <div className="eyebrow green">{isEdit ? text.editRecord : text.newRecord}</div>
+            <h2>{isEdit ? text.editMeeting : t.create}</h2>
           </div>
           <button className="icon-button" onClick={onClose}><X /></button>
         </div>
@@ -270,9 +300,9 @@ function MeetingModal({ t, meeting, onClose, onSaved }) {
             <label className="span-2">{t.purpose}<textarea value={form.purpose} onChange={e => update('purpose', e.target.value)} /></label>
           </div>
           <div className="modal-actions">
-            <button type="button" className="secondary" onClick={onClose}>Cancel</button>
+            <button type="button" className="secondary" onClick={onClose}>{text.cancel}</button>
             <button className="primary" disabled={loading}>
-              {loading ? <Loader2 size={16} className="spinner" /> : <>{isEdit ? 'Save changes' : t.save}<ChevronRight size={16} /></>}
+              {loading ? <Loader2 size={16} className="spinner" /> : <>{isEdit ? text.saveChanges : t.save}<ChevronRight size={16} /></>}
             </button>
           </div>
         </form>
@@ -283,8 +313,9 @@ function MeetingModal({ t, meeting, onClose, onSaved }) {
 
 /* ── QR Code Section ────────────────────────────────────── */
 
-function QrSection({ meetingId, t }) {
+function QrSection({ meetingId, t, lang }) {
   const toast = useToast();
+  const text = uiText(lang);
   const [qr, setQr] = useState(null);
   const [loading, setLoading] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -321,29 +352,29 @@ function QrSection({ meetingId, t }) {
 
   return (
     <div className="qr-section">
-      <h3><QrCode size={16} style={{ verticalAlign: 'middle', marginRight: 6 }} />Session Attendance QR</h3>
+      <h3><QrCode size={16} style={{ verticalAlign: 'middle', marginRight: 6 }} />{text.attendanceQr}</h3>
       {qr ? (
         <div className="qr-display">
           <QRCodeSVG value={qr.payload} size={220} level="H" includeMargin />
           <p className="qr-expiry">
             {secondsLeft > 0
-              ? <><strong>{secondsLeft}s</strong> remaining — display on screen for participants</>
-              : <>Refreshing QR...</>
+              ? <><strong>{secondsLeft}s</strong> {text.remaining}</>
+              : <>{text.refreshingQr}</>
             }
           </p>
           {secondsLeft > 0 && (
             <button className="secondary" onClick={() => generate(false)} disabled={loading}>
-              {loading ? <Loader2 size={15} className="spinner" /> : <RefreshCw size={15} />} Refresh QR
+              {loading ? <Loader2 size={15} className="spinner" /> : <RefreshCw size={15} />} {text.refreshQr}
             </button>
           )}
           <p className="qr-hint" style={{ marginTop: 12 }}>
-            Participants scan this with their Personal Sign-In Link page to record attendance.
+            {text.qrHint}
           </p>
         </div>
       ) : (
         <button className="secondary" onClick={() => generate(false)} disabled={loading}>
           {loading ? <Loader2 size={15} className="spinner" /> : <QrCode size={15} />}
-          Generate Session QR Code
+          {text.generateQr}
         </button>
       )}
     </div>
@@ -352,7 +383,8 @@ function QrSection({ meetingId, t }) {
 
 /* ── CSV Import Section ─────────────────────────────────── */
 
-function CsvImport({ meetingId, onDone }) {
+function CsvImport({ meetingId, onDone, lang }) {
+  const text = uiText(lang);
   const toast = useToast();
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -385,8 +417,18 @@ function CsvImport({ meetingId, onDone }) {
   return (
     <div>
       <a className="template-link" href="/api/templates/guest-import.xlsx" download="guest-list-template.xlsx">
-        <Download size={14} /> Download XLSX template
+        <Download size={14} /> {text.downloadTemplate}
       </a>
+      <div className="import-guide" style={{ margin: '10px 0 12px', padding: '12px 14px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--card)' }}>
+        <strong style={{ display: 'block', marginBottom: 6 }}>{text.importTitle}</strong>
+        <p className="muted" style={{ margin: '0 0 6px', fontSize: 12 }}>{text.importIntro}</p>
+        <ul className="muted" style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.55 }}>
+          <li>{text.importRequired}</li>
+          <li>{text.importPhone}</li>
+          <li>{text.importDuplicate}</li>
+          <li>{text.importFormats}</li>
+        </ul>
+      </div>
       <form className="csv-import" onSubmit={upload}>
       <FileUp size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />
       <input
@@ -395,7 +437,7 @@ function CsvImport({ meetingId, onDone }) {
         onChange={e => setFile(e.target.files[0])}
       />
       <button className="secondary" type="submit" disabled={!file || loading}>
-        {loading ? <Loader2 size={14} className="spinner" /> : 'Import CSV / XLSX'}
+        {loading ? <Loader2 size={14} className="spinner" /> : text.importFile}
       </button>
     </form>
     </div>
@@ -404,8 +446,9 @@ function CsvImport({ meetingId, onDone }) {
 
 /* ── Meeting Detail Modal ───────────────────────────────── */
 
-function DetailModal({ meetingId, t, onClose }) {
+function DetailModal({ meetingId, t, lang, onClose }) {
   const toast = useToast();
+  const text = uiText(lang);
   const [m, setM] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [guestForm, setGuestForm] = useState({ name: '', phone: '', email: '', organization: '', role_title: '' });
@@ -424,13 +467,13 @@ function DetailModal({ meetingId, t, onClose }) {
     <div className="modal-backdrop">
       <section className="modal">
         <p className="error">{loadError}</p>
-        <button className="secondary" onClick={onClose}>Close</button>
+        <button className="secondary" onClick={onClose}>{lang === 'sw' ? 'Funga' : 'Close'}</button>
       </section>
     </div>
   );
   if (!m) return (
     <div className="modal-backdrop">
-      <section className="modal"><p className="muted">Loading meeting details…</p></section>
+      <section className="modal"><p className="muted">{lang === 'sw' ? 'Inapakia taarifa za mkutano…' : 'Loading meeting details…'}</p></section>
     </div>
   );
 
@@ -441,6 +484,7 @@ function DetailModal({ meetingId, t, onClose }) {
   if (editing) {
     return (
       <MeetingModal
+        lang={lang}
         t={t}
         meeting={m}
         onClose={() => setEditing(false)}
@@ -519,7 +563,14 @@ function DetailModal({ meetingId, t, onClose }) {
   const addGuest = async (e) => {
     e.preventDefault();
     try {
-      await api(`/api/meetings/${meetingId}/guests`, { method: 'POST', body: JSON.stringify(guestForm) });
+      const phone = normalizeTanzaniaPhone(guestForm.phone);
+      const email = guestForm.email.trim().toLowerCase();
+      const duplicate = m.guests.some(guest =>
+        (email && guest.email?.trim().toLowerCase() === email)
+          || (phone && normalizeTanzaniaPhone(guest.phone || '') === phone)
+      );
+      if (duplicate) throw new Error('This email or WhatsApp number is already used for this meeting.');
+      await api(`/api/meetings/${meetingId}/guests`, { method: 'POST', body: JSON.stringify({ ...guestForm, phone, email }) });
       setGuestForm({ name: '', phone: '', email: '', organization: '', role_title: '' });
       await refresh();
       toast('Guest added successfully.', 'success');
@@ -534,20 +585,20 @@ function DetailModal({ meetingId, t, onClose }) {
         <section className="modal">
           <div className="modal-head">
             <div>
-              <div className="eyebrow green">SCHEDULE CHANGE</div>
-              <h2>Notify guests of reschedule</h2>
+              <div className="eyebrow green">{text.scheduleChange}</div>
+              <h2>{text.notifyReschedule}</h2>
             </div>
             <button className="icon-button" onClick={() => setShowNotify(false)}><X /></button>
           </div>
-          <p className="muted">Send an updated schedule notice to all guests by email and WhatsApp.</p>
-          <label>Note to guests (optional)
+          <p className="muted">{text.scheduleNotice}</p>
+          <label>{text.noteOptional}
             <textarea value={notifyNote} onChange={e => setNotifyNote(e.target.value)} placeholder="e.g. Venue unchanged, only the time has moved." />
           </label>
           <div className="modal-actions">
-            <button className="secondary" onClick={() => setShowNotify(false)}>Skip for now</button>
+            <button className="secondary" onClick={() => setShowNotify(false)}>{text.skip}</button>
             <button className="primary" onClick={notifyReschedule} disabled={actionLoading}>
               {actionLoading ? <Loader2 size={16} className="spinner" /> : <Bell size={16} />}
-              Send reschedule notice
+              {text.sendNotice}
             </button>
           </div>
         </section>
@@ -561,20 +612,20 @@ function DetailModal({ meetingId, t, onClose }) {
         <section className="modal">
           <div className="modal-head">
             <div>
-              <div className="eyebrow green">CANCELLATION</div>
-              <h2>Cancel this meeting</h2>
+              <div className="eyebrow green">{text.cancellation}</div>
+              <h2>{text.cancelMeeting}</h2>
             </div>
             <button className="icon-button" onClick={() => setShowCancel(false)}><X /></button>
           </div>
-          <p className="muted">All invited guests will receive a cancellation notice.</p>
-          <label>Reason for cancellation
+          <p className="muted">{text.cancellationNotice}</p>
+          <label>{text.cancellationReason}
             <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} required placeholder="e.g. Postponed due to official travel" />
           </label>
           <div className="modal-actions">
-            <button className="secondary" onClick={() => setShowCancel(false)}>Keep meeting</button>
+            <button className="secondary" onClick={() => setShowCancel(false)}>{text.keepMeeting}</button>
             <button className="primary" style={{ background: '#a32d2d' }} onClick={cancelMeeting} disabled={actionLoading}>
               {actionLoading ? <Loader2 size={16} className="spinner" /> : <Ban size={16} />}
-              Confirm cancellation
+              {text.confirmCancellation}
             </button>
           </div>
         </section>
@@ -595,58 +646,58 @@ function DetailModal({ meetingId, t, onClose }) {
 
         <div className="detail-meta">
           <span><CalendarDays size={16} />{new Date(m.start_at).toLocaleString()} – {new Date(m.end_at).toLocaleTimeString()}</span>
-          <span><MapPin size={16} />{m.location || 'Council venue'}</span>
+          <span><MapPin size={16} />{m.location || text.councilVenue}</span>
           <span className={`badge ${isCancelled ? 'red' : m.status === 'published' ? 'green' : 'gold'}`}>{m.status}</span>
         </div>
 
         {m.purpose && <p className="muted" style={{ marginBottom: 16 }}>{m.purpose}</p>}
         {isCancelled && (
           <div className="notice-cancel">
-            <strong>Meeting cancelled</strong>
+            <strong>{text.meetingCancelled}</strong>
             {m.cancellation_reason ? ` — ${m.cancellation_reason}` : ''}
           </div>
         )}
-        {readOnly && !isCancelled && <div className="notice">This meeting has ended. The record is available for viewing only.</div>}
+        {readOnly && !isCancelled && <div className="notice">{text.endedNotice}</div>}
         {!canManage && !readOnly && !isCancelled && (
-          <div className="notice notice-blue">You are viewing this meeting in read-only mode. Only the organiser can edit guests or send notices.</div>
+          <div className="notice notice-blue">{text.readOnlyNotice}</div>
         )}
 
         {m.attendance && (
           <div className="detail-stats" style={{ marginTop: 0, marginBottom: 16 }}>
-            <Metric label="Invited" value={m.attendance.invited || 0} />
-            <Metric label="Attended" value={m.attendance.attended || 0} />
-            <Metric label="Absent" value={m.attendance.not_attended || 0} />
-            <Metric label="Rate" value={`${m.attendance.percentage || 0}%`} />
+            <Metric label={text.invited} value={m.attendance.invited || 0} />
+            <Metric label={text.attended} value={m.attendance.attended || 0} />
+            <Metric label={text.absent} value={m.attendance.not_attended || 0} />
+            <Metric label={text.rate} value={`${m.attendance.percentage || 0}%`} />
           </div>
         )}
 
         <div className="detail-stats">
-          <Metric label="Confirmed" value={m.counts?.confirmed || 0} />
-          <Metric label="Declined" value={m.counts?.declined || 0} />
-          <Metric label="Tentative" value={m.counts?.tentative || 0} />
-          <Metric label="No response" value={m.counts?.no_response || 0} />
+          <Metric label={text.confirmed} value={m.counts?.confirmed || 0} />
+          <Metric label={text.declined} value={m.counts?.declined || 0} />
+          <Metric label={t.tentative} value={m.counts?.tentative || 0} />
+          <Metric label={text.noResponse} value={m.counts?.no_response || 0} />
         </div>
 
         <div className="modal-actions report-actions">
           <button className="secondary" onClick={() => downloadReport('csv')}>
-            <Download size={16} />CSV report
+            <Download size={16} />{text.csvReport}
           </button>
           <button className="secondary" onClick={() => downloadReport('pdf')}>
-            <Download size={16} />PDF report
+            <Download size={16} />{text.pdfReport}
           </button>
           {canManage && (
             <button className="secondary" onClick={() => setEditing(true)}>
-              <Settings2 size={16} /> Edit meeting
+              <Settings2 size={16} /> {text.editMeeting}
             </button>
           )}
           {canManage && m.status === 'published' && (
             <button className="secondary" onClick={() => setShowNotify(true)}>
-              <Bell size={16} /> Notify reschedule
+              <Bell size={16} /> {text.notifyReschedule}
             </button>
           )}
           {canManage && (
             <button className="secondary" onClick={() => setShowCancel(true)} style={{ color: '#a32d2d' }}>
-              <Ban size={16} /> Cancel meeting
+              <Ban size={16} /> {text.cancelMeeting}
             </button>
           )}
           {canManage && (
@@ -666,14 +717,14 @@ function DetailModal({ meetingId, t, onClose }) {
                 <span>
                   {g.name}
                   <small>
-                    {[g.organization || g.role_title, g.phone, g.email].filter(Boolean).join(' · ') || 'Participant'}
+                    {[g.organization || g.role_title, g.phone, g.email].filter(Boolean).join(' · ') || text.participant}
                   </small>
                 </span>
                 <span className={`badge ${g.attended ? 'green' : 'grey'}`}>
-                  {g.attended ? 'Checked in' : m.past ? 'Absent' : 'Not checked in'}
+                  {g.attended ? text.checkedIn : m.past ? text.absent : text.notCheckedIn}
                 </span>
                 <span className={`badge ${g.status === 'confirmed' ? 'green' : g.status === 'declined' ? 'grey' : 'gold'}`}>
-                  {g.status === 'no_response' ? 'No RSVP' : g.status.charAt(0).toUpperCase() + g.status.slice(1)}
+                  {g.status === 'no_response' ? text.noRsvp : g.status.charAt(0).toUpperCase() + g.status.slice(1)}
                 </span>
                 {g.whatsapp_status && (
                   <span className={`badge ${
@@ -693,31 +744,31 @@ function DetailModal({ meetingId, t, onClose }) {
         {/* Add guest manually */}
         {canManage && (
           <form className="guest-add-form" onSubmit={addGuest}>
-            <h3>Add guest manually</h3>
+            <h3>{text.addGuest}</h3>
             <div className="form-grid compact-grid">
               <label>Name<input value={guestForm.name} onChange={e => setGuestForm({ ...guestForm, name: e.target.value })} required /></label>
-              <label>Organisation<input value={guestForm.organization} onChange={e => setGuestForm({ ...guestForm, organization: e.target.value })} /></label>
-              <label>WhatsApp number<input value={guestForm.phone} onChange={e => setGuestForm({ ...guestForm, phone: e.target.value })} placeholder="0757219157" /></label>
+              <label>{text.organisation}<input value={guestForm.organization} onChange={e => setGuestForm({ ...guestForm, organization: e.target.value })} /></label>
+              <label>WhatsApp number<input value={guestForm.phone} onChange={e => setGuestForm({ ...guestForm, phone: e.target.value })} placeholder="07******** or +2557********" /></label>
               <label>Email<input type="email" value={guestForm.email} onChange={e => setGuestForm({ ...guestForm, email: e.target.value })} /></label>
-              <label className="span-2">Job title / Role<input value={guestForm.role_title} onChange={e => setGuestForm({ ...guestForm, role_title: e.target.value })} placeholder="e.g. Director of Finance" /></label>
+              <label className="span-2">{text.jobRole}<input value={guestForm.role_title} onChange={e => setGuestForm({ ...guestForm, role_title: e.target.value })} placeholder="e.g. Director of Finance" /></label>
             </div>
-            <button className="secondary" type="submit">Add guest</button>
+            <button className="secondary" type="submit">{text.add}</button>
           </form>
         )}
 
         {/* CSV import */}
         {canManage && (
           <div style={{ marginTop: 14 }}>
-            <p className="section-label">Or import from file</p>
+            <p className="section-label">{text.importFrom}</p>
             <p className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
               Download the XLSX template, fill in guests, then upload CSV or XLSX.
             </p>
-            <CsvImport meetingId={meetingId} onDone={refresh} />
+            <CsvImport meetingId={meetingId} onDone={refresh} lang={lang} />
           </div>
         )}
 
         {/* QR Code — only for upcoming meetings */}
-        {canManage && <QrSection meetingId={meetingId} t={t} />}
+        {canManage && <QrSection meetingId={meetingId} t={t} lang={lang} />}
       </section>
     </div>
   );
@@ -727,6 +778,7 @@ function DetailModal({ meetingId, t, onClose }) {
 
 function Dashboard({ lang, user, view = 'dashboard' }) {
   const t = copy[lang];
+  const text = uiText(lang);
   const toast = useToast();
   const [meetings, setMeetings] = useState([]);
   const [show, setShow] = useState(false);
@@ -750,12 +802,12 @@ function Dashboard({ lang, user, view = 'dashboard' }) {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow green">OFFICE OF THE MUNICIPAL DIRECTOR</div>
+          <div className="eyebrow green">{text.office}</div>
           <h1>{isMeetingsView ? t.meetings : `${t.welcome}, ${user?.name?.split(' ')[0] || 'Administrator'}`}</h1>
           <p className="muted">
             {isMeetingsView
               ? 'Full list of all council meeting records.'
-              : `${t.portal}. Review and coordinate council meetings from one place.`}
+              : `${t.portal}. ${text.reviewMeetings}`}
           </p>
         </div>
         <button className="primary" onClick={() => setShow(true)}>
@@ -774,8 +826,8 @@ function Dashboard({ lang, user, view = 'dashboard' }) {
       <section className="panel">
         <div className="panel-head">
           <div>
-            <h2>{isMeetingsView ? 'All meetings' : t.upcoming}</h2>
-            <p className="muted">{isMeetingsView ? 'Click a row to view, edit guests, send invitations, or generate a QR code.' : 'Scheduled and active council coordination'}</p>
+            <h2>{isMeetingsView ? text.allMeetings : t.upcoming}</h2>
+            <p className="muted">{isMeetingsView ? text.meetingRecords : text.scheduledCoordination}</p>
           </div>
           <button className="text-button" onClick={() => setShow(true)}>
             {t.create} <ChevronRight size={15} />
@@ -794,7 +846,7 @@ function Dashboard({ lang, user, view = 'dashboard' }) {
           <div className="panel-head">
             <div>
               <h2>{t.past}</h2>
-              <p className="muted">Read-only records for official reference</p>
+              <p className="muted">{text.officialRecords}</p>
             </div>
           </div>
           <MeetingTable rows={past} t={t} onSelect={setSelected} />
@@ -802,15 +854,16 @@ function Dashboard({ lang, user, view = 'dashboard' }) {
       )}
 
       {show && <MeetingModal lang={lang} t={t} onClose={() => setShow(false)} onSaved={() => { setShow(false); refresh(); }} />}
-      {selected && <DetailModal meetingId={selected} t={t} onClose={() => setSelected(null)} />}
+      {selected && <DetailModal meetingId={selected} t={t} lang={lang} onClose={() => setSelected(null)} />}
     </>
   );
 }
 
 /* ── Admin Panel ────────────────────────────────────────── */
 
-function AdminPanel({ user }) {
+function AdminPanel({ user, lang }) {
   const toast = useToast();
+  const text = uiText(lang);
   const [tab, setTab] = useState('accounts');
   const [accounts, setAccounts] = useState([]);
   const [attendance, setAttendance] = useState([]);
@@ -855,6 +908,45 @@ function AdminPanel({ user }) {
     } finally {
       setLogLoading(false);
     }
+  };
+
+  const downloadFullLogs = async () => {
+    try {
+      await downloadBlob('/api/admin/logs/download', 'application.log', localStorage.token);
+      toast(lang === 'sw' ? 'Kumbukumbu zote zimepakuliwa.' : 'Full system logs downloaded.', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  };
+
+  const downloadAttendance = () => {
+    downloadCsv(attendance, [
+      { key: 'meeting_title', label: 'Meeting' },
+      { key: 'meeting_reference', label: 'Reference' },
+      { key: 'guest_name', label: 'Participant' },
+      { key: 'guest_phone', label: 'Phone' },
+      { key: 'checked_in_at', label: 'Checked in' },
+      { key: 'attended', label: 'Attended' }
+    ], 'attendance-records.csv');
+  };
+
+  const downloadAudit = () => {
+    downloadCsv(auditLogs, [
+      { key: 'at', label: 'Time' },
+      { key: 'email', label: 'User' },
+      { key: 'action', label: 'Action' },
+      { key: 'detail', label: 'Detail' }
+    ], 'audit-log.csv');
+  };
+
+  const downloadAccounts = () => {
+    downloadCsv(accounts, [
+      { key: 'name', label: 'Name' },
+      { key: 'email', label: 'Email' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'role', label: 'Role' },
+      { key: 'status', label: 'Status' }
+    ], 'staff-accounts.csv');
   };
 
   // Fetch logs when switching to the logs tab
@@ -921,21 +1013,17 @@ function AdminPanel({ user }) {
     return <div className="empty">Administrator access required.</div>;
   }
 
-  const tabs = [
-    ['accounts', 'Staff accounts'],
-    ['attendance', 'Attendance'],
-    ['logs', 'System Logs'],
-    ['integrations', 'Integrations'],
-    ['audit', 'Audit log']
-  ];
+  const tabs = lang === 'sw'
+    ? [['accounts', 'Akaunti za watumishi'], ['attendance', 'Mahudhurio'], ['logs', 'Kumbukumbu za mfumo'], ['integrations', 'Miunganisho'], ['audit', 'Kumbukumbu ya ukaguzi']]
+    : [['accounts', 'Staff accounts'], ['attendance', 'Attendance'], ['logs', 'System Logs'], ['integrations', 'Integrations'], ['audit', 'Audit log']];
 
   return (
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow green">COUNCIL ADMINISTRATION</div>
-          <h1>System administration</h1>
-          <p className="muted">Manage staff accounts, attendance, messaging integrations, and audit activity.</p>
+          <div className="eyebrow green">{lang === 'sw' ? 'UTAWALA WA HALMASHAURI' : 'COUNCIL ADMINISTRATION'}</div>
+          <h1>{lang === 'sw' ? 'Usimamizi wa mfumo' : 'System administration'}</h1>
+          <p className="muted">{lang === 'sw' ? 'Simamia akaunti za watumishi, mahudhurio, miunganisho ya ujumbe na shughuli za ukaguzi.' : 'Manage staff accounts, attendance, messaging integrations, and audit activity.'}</p>
         </div>
       </div>
 
@@ -951,7 +1039,7 @@ function AdminPanel({ user }) {
         <div className="empty"><Loader2 size={22} className="spinner" style={{ color: 'var(--green)' }} /></div>
       ) : tab === 'accounts' ? (
         <section className="panel">
-          <div className="panel-head"><h2>Staff accounts</h2></div>
+          <div className="panel-head"><h2>Staff accounts</h2><button className="secondary" onClick={downloadAccounts}><Download size={15} /> Download CSV</button></div>
           <div className="table-wrap">
             <table>
               <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
@@ -983,7 +1071,7 @@ function AdminPanel({ user }) {
         </section>
       ) : tab === 'attendance' ? (
         <section className="panel">
-          <div className="panel-head"><h2>Attendance records</h2><p className="muted">{attendance.length} check-ins recorded</p></div>
+          <div className="panel-head"><h2>Attendance records</h2><div style={{ display: 'flex', gap: 10, alignItems: 'center' }}><p className="muted">{attendance.length} check-ins recorded</p><button className="secondary" onClick={downloadAttendance}><Download size={15} /> Download CSV</button></div></div>
           <div className="table-wrap">
             <table>
               <thead><tr><th>Meeting</th><th>Participant</th><th>Phone</th><th>Checked in</th><th>Status</th></tr></thead>
@@ -1041,7 +1129,7 @@ function AdminPanel({ user }) {
             </p>
             <form className="account-form" onSubmit={testWhatsApp} style={{ maxWidth: 480 }}>
               <label>Test phone number
-                <input value={waPhone} onChange={e => setWaPhone(e.target.value)} placeholder="0757219157" required />
+                <input value={waPhone} onChange={e => setWaPhone(e.target.value)} placeholder="07******** or +2557********" required />
               </label>
               <label>Optional message
                 <textarea value={waMessage} onChange={e => setWaMessage(e.target.value)} placeholder="BMC Meetings test message" />
@@ -1057,7 +1145,7 @@ function AdminPanel({ user }) {
         </section>
       ) : tab === 'audit' ? (
         <section className="panel">
-          <div className="panel-head"><h2>Audit log</h2></div>
+          <div className="panel-head"><h2>Audit log</h2><button className="secondary" onClick={downloadAudit}><Download size={15} /> Download CSV</button></div>
           <div className="table-wrap">
             <table>
               <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Detail</th></tr></thead>
@@ -1118,6 +1206,9 @@ function AdminPanel({ user }) {
                 {logLoading ? <Loader2 size={14} className="spinner" /> : <RefreshCw size={14} />}
                 Refresh
               </button>
+              <button className="log-btn" onClick={downloadFullLogs} title="Download complete application log">
+                <Download size={14} /> Download all
+              </button>
             </div>
           </div>
           <div className="log-viewer">
@@ -1140,8 +1231,10 @@ function AdminPanel({ user }) {
 
 /* ── Account Settings ───────────────────────────────────── */
 
-function Account({ lang, user, onBack, onUpdated }) {
+function Account({ lang, user, onBack, onUpdated, focusWhatsApp }) {
   const t = copy[lang];
+  const text = uiText(lang);
+  const whatsappSectionRef = useRef(null);
   const toast = useToast();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -1179,6 +1272,12 @@ function Account({ lang, user, onBack, onUpdated }) {
       .finally(() => setLoading(false));
     api('/api/auth/config').then(c => setWhatsappEnabled(!!c.whatsapp_enabled)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!focusWhatsApp) return;
+    const timer = setTimeout(() => whatsappSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    return () => clearTimeout(timer);
+  }, [focusWhatsApp]);
 
   const save = async (e) => {
     e.preventDefault();
@@ -1270,9 +1369,9 @@ function Account({ lang, user, onBack, onUpdated }) {
       </button>
       <div className="page-head compact">
         <div>
-          <div className="eyebrow green">PROFILE</div>
+          <div className="eyebrow green">{text.profile}</div>
           <h1>{t.account}</h1>
-          <p className="muted">Update the information used for council notifications.</p>
+          <p className="muted">{text.updateProfile}</p>
         </div>
       </div>
       {loading
@@ -1283,7 +1382,7 @@ function Account({ lang, user, onBack, onUpdated }) {
             <label>{t.email}
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} required disabled={emailStage === 'verify'} style={{ flex: 1 }} />
-                {emailVerified && <span className="badge green">Verified</span>}
+                {emailVerified && <span className="badge green">{text.verified}</span>}
               </div>
             </label>
             {emailStage === 'verify' && (
@@ -1303,15 +1402,15 @@ function Account({ lang, user, onBack, onUpdated }) {
                     setDevelopmentOtp('');
                   }}
                 >
-                  Cancel email change
+                  {text.cancelEmail}
                 </button>
               </label>
             )}
             <label>{t.phone}
-              <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="0757219157" />
+              <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="07******** or +2557********" />
               <small className="muted">Used for WhatsApp invitations{whatsappEnabled ? ' (OTP at registration enabled)' : ''}.</small>
             </label>
-            <label>Role<input value={user?.role || ''} disabled /></label>
+            <label>{text.role}<input value={user?.role || ''} disabled /></label>
             <button className="primary" disabled={saving}>
               {saving ? <Loader2 size={16} className="spinner" /> : <>{t.saveAccount}<ChevronRight size={16} /></>}
             </button>
@@ -1319,29 +1418,29 @@ function Account({ lang, user, onBack, onUpdated }) {
         )}
       {!loading && (
         <form className="account-form" onSubmit={changePassword} style={{ marginTop: 28 }}>
-          <div className="eyebrow green">SECURITY</div>
-          <h2 style={{ margin: '8px 0 16px', fontSize: 18 }}>Change password</h2>
-          <label>Current password<input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required autoComplete="current-password" /></label>
-          <label>New password<input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={8} required autoComplete="new-password" /></label>
+          <div className="eyebrow green">{text.security}</div>
+          <h2 style={{ margin: '8px 0 16px', fontSize: 18 }}>{text.changePassword}</h2>
+          <label>{text.currentPassword}<input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required autoComplete="current-password" /></label>
+          <label>{text.newPassword}<input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={8} required autoComplete="new-password" /></label>
           <button className="secondary" disabled={savingPassword}>
-            {savingPassword ? <Loader2 size={16} className="spinner" /> : 'Update password'}
+            {savingPassword ? <Loader2 size={16} className="spinner" /> : text.updatePassword}
           </button>
         </form>
       )}
       {!loading && (
-        <div className="account-form" style={{ marginTop: 28 }}>
-          <div className="eyebrow green">WHATSAPP MESSAGING</div>
+        <div ref={whatsappSectionRef} className="account-form" style={{ marginTop: 28 }}>
+          <div className="eyebrow green">{text.whatsappMessaging}</div>
           <h2 style={{ margin: '8px 0 16px', fontSize: 18 }}>WhatsApp Business</h2>
           <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: 16 }}>
             <p style={{ margin: '0 0 10px', fontWeight: 600 }}>System default number</p>
-            <p className="muted" style={{ margin: '0 0 16px', fontSize: 13 }}>Messages will be sent using the system default WhatsApp Business number configured by the administrator.</p>
-            <p style={{ margin: '0 0 16px', fontWeight: 600 }}>My WhatsApp Business number</p>
-            <div style={{ background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: 8, padding: 14, marginBottom: 10 }}>
+            <p className="muted" style={{ margin: '0 0 16px', fontSize: 13 }}>Messages are sent using the WhatsApp Business number configured by the administrator.</p>
+            <p style={{ margin: '0 0 16px', fontWeight: 600 }}>Personal WhatsApp Business number</p>
+            <div style={{ background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: 8, padding: 14, marginBottom: 10, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <MessageCircle size={18} style={{ color: '#2563eb', flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
               <p style={{ margin: 0, fontSize: 13, color: 'var(--text)' }}>
-                <strong>🚀 Coming Soon</strong> — Connecting your own WhatsApp Business number is an advanced feature that will be available in a future update.
+                Personal WhatsApp Business numbers are not available yet. Meeting invitations will continue to use the system default number.
               </p>
             </div>
-            <p className="muted" style={{ margin: 0, fontSize: 13 }}>For now, all WhatsApp invitations are sent from the system default number.</p>
           </div>
         </div>
       )}
@@ -1508,6 +1607,7 @@ function Rsvp({ lang, setLang }) {
 
 function Attendance({ lang, setLang }) {
   const t = copy[lang] || copy.en;
+  const text = uiText(lang);
   const token = new URLSearchParams(location.search).get('token');
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -1606,8 +1706,8 @@ function Attendance({ lang, setLang }) {
         <Brand lang={lang} setLang={setLang} />
         <main className="auth-shell">
           <section className="auth-card">
-            <div className="auth-kicker"><AlertCircle size={16} /> CHECK-IN ERROR</div>
-            <h2>Unable to load</h2>
+            <div className="auth-kicker"><AlertCircle size={16} /> {text.checkinError}</div>
+            <h2>{text.unableLoad}</h2>
             <p className="error">{error}</p>
           </section>
         </main>
@@ -1633,9 +1733,9 @@ function Attendance({ lang, setLang }) {
       <Brand lang={lang} setLang={setLang} />
       <main className="rsvp-shell">
         <section className="rsvp-card">
-          <div className="eyebrow green">ATTENDANCE CHECK-IN</div>
+          <div className="eyebrow green">{text.checkin}</div>
           <h1>{data.meeting.title}</h1>
-          <p className="rsvp-name">Welcome, <strong>{data.participant}</strong></p>
+          <p className="rsvp-name">{text.welcome}, <strong>{data.participant}</strong></p>
           
           <div className="rsvp-event">
             <p>{data.meeting.purpose}</p>
@@ -1648,15 +1748,15 @@ function Attendance({ lang, setLang }) {
               <div className="success-banner">
                 <CheckCircle2 size={24} style={{ color: 'var(--green)' }} />
                 <div>
-                  <strong>{message || 'Attendance already recorded.'}</strong>
-                  <p>You have successfully checked into this meeting.</p>
+                  <strong>{message || text.attendanceRecorded}</strong>
+                  <p>{text.checkedInto}</p>
                 </div>
               </div>
             ) : !data.check_in_open ? (
               <div className="notice-banner">
                 <Clock3 size={24} style={{ color: 'var(--gold)' }} />
                 <div>
-                  <strong>Check-in is not available</strong>
+                  <strong>{text.checkinUnavailable}</strong>
                   <p>{data.message}</p>
                 </div>
               </div>
@@ -1664,7 +1764,7 @@ function Attendance({ lang, setLang }) {
               <div className="scanner-container">
                 <div className="instruction-box">
                   <QrCode size={20} className="instruction-icon" />
-                  <p><strong>Instructions:</strong> Use your camera to scan the session attendance QR code displayed by the meeting organiser.</p>
+                  <p><strong>{text.instructions}:</strong> {text.scannerInstruction}</p>
                 </div>
                 
                 {scanning && (
@@ -1678,13 +1778,13 @@ function Attendance({ lang, setLang }) {
                 
                 {!scanning && (
                   <button className="primary full large-btn" onClick={start}>
-                    <QrCode size={18} /> Open camera scanner
+                    <QrCode size={18} /> {text.openScanner}
                   </button>
                 )}
                 
                 {scanning && (
                   <button className="secondary full" style={{ marginTop: 16 }} onClick={stopScanner}>
-                    Stop scanner
+                    {text.stopScanner}
                   </button>
                 )}
                 
@@ -1706,6 +1806,8 @@ export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const [account, setAccount] = useState(false);
   const [adminView, setAdminView] = useState(false);
+  const [focusWhatsApp, setFocusWhatsApp] = useState(false);
+  const [showWhatsAppNotice, setShowWhatsAppNotice] = useState(false);
   const [view, setView] = useState('dashboard');
   const toast = useToast();
 
@@ -1760,35 +1862,61 @@ export default function App() {
     } catch { /* ignore */ }
     history.replaceState(null, '', '/');
     setAccount(false);
+    setFocusWhatsApp(false);
     setView('dashboard');
     toast('You have been signed out.', 'info');
     setUser(null);
   };
 
+  const openPersonalWhatsApp = () => {
+    setAccount(true);
+    setAdminView(false);
+    setView('dashboard');
+    setFocusWhatsApp(true);
+    setShowWhatsAppNotice(true);
+  };
+
   return (
     <>
-      <OfflineBanner />
+      <OfflineBanner lang={lang} />
       {current && !current.whatsappConnected && !account && !adminView && !sessionStorage.getItem('wa_dismissed') && (
         <div style={{ background: 'linear-gradient(135deg, #1b5e20 0%, #25d366 100%)', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', fontSize: 14, color: '#fff' }}>
           <span>📱 Connect your WhatsApp Business number to send meeting invitations from your own number.</span>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            <button onClick={() => { setAccount(true); setAdminView(false); }} style={{ background: '#fff', color: '#1b5e20', border: 'none', borderRadius: 6, padding: '6px 14px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>Connect WhatsApp</button>
+            <button onClick={openPersonalWhatsApp} style={{ background: '#fff', color: '#1b5e20', border: 'none', borderRadius: 6, padding: '6px 14px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>{uiText(lang).useMyWhatsApp}</button>
             <button onClick={() => { sessionStorage.setItem('wa_dismissed', '1'); setUser(prev => ({ ...prev })); }} style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 6, padding: '6px 14px', fontWeight: 500, cursor: 'pointer', fontSize: 13 }}>Use default number</button>
           </div>
+        </div>
+      )}
+      {showWhatsAppNotice && (
+        <div className="modal-backdrop" role="presentation">
+          <section className="modal" role="dialog" aria-modal="true" aria-labelledby="whatsapp-notice-title">
+            <div className="modal-head">
+              <div>
+                <div className="eyebrow green">{uiText(lang).whatsappMessaging}</div>
+                <h2 id="whatsapp-notice-title">{uiText(lang).whatsappComingTitle}</h2>
+              </div>
+              <button className="icon-button" onClick={() => setShowWhatsAppNotice(false)} aria-label={uiText(lang).close}><X /></button>
+            </div>
+            <p className="muted">{uiText(lang).whatsappComingMessage}</p>
+            <div className="modal-actions">
+              <button className="primary" onClick={() => setShowWhatsAppNotice(false)}>{uiText(lang).close}</button>
+            </div>
+          </section>
         </div>
       )}
       <Shell
       lang={lang} setLang={setLang} user={current}
       onLogout={handleLogout}
       view={adminView ? 'admin' : account ? 'account' : view}
-      onNavigate={next => { setAccount(false); setAdminView(false); setView(next); }}
-      onAccount={() => { setAccount(true); setAdminView(false); setView('dashboard'); }}
+      onNavigate={next => { setAccount(false); setFocusWhatsApp(false); setAdminView(false); setView(next); }}
+      onAccount={() => { setAccount(true); setFocusWhatsApp(false); setAdminView(false); setView('dashboard'); }}
       onAdmin={() => { setAdminView(true); setAccount(false); setView('dashboard'); }}
     >
       {adminView
-        ? <AdminPanel user={current} />
+        ? <AdminPanel user={current} lang={lang} />
         : account
-          ? <Account lang={lang} user={current} onBack={() => setAccount(false)} onUpdated={email => setUser(prev => ({ ...(prev || current), email }))} />
+          ? <Account lang={lang} user={current} focusWhatsApp={focusWhatsApp} onBack={() => { setAccount(false); setFocusWhatsApp(false); }} onUpdated={email => setUser(prev => ({ ...(prev || current), email }))} />
           : <Dashboard lang={lang} user={current} view={view} />
       }
     </Shell>

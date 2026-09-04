@@ -3,7 +3,7 @@
 
 **Structure:** ISO/IEC/IEEE 29148 aligned, compatible with IEEE 830  
 **Document status:** Working baseline for council confirmation  
-**Language:** English planning document. The system itself is mandatory English and Swahili.
+**Language:** English planning document. The current staff and participant UI supports English and Kiswahili; provider-generated content and some exported report text remain English.
 
 ## Table of Contents
 
@@ -24,7 +24,7 @@ This SRS defines testable requirements for a PWA that replaces manual meeting co
 
 ### 1.2 Scope
 
-The product covers meeting lifecycle, guests, invitations, RSVP, calendar links, reporting, roles, audit, bilingual UI, dual Organizer verification, and physical-presence attendance. Participants use a Personal Sign-In Link without login. Leave processing remains in the official HR channel.
+The product covers meeting lifecycle, guests, invitations, RSVP, reporting, roles, audit, bilingual UI, registration verification, and physical-presence attendance. Participants use a Personal Sign-In Link without login. Leave processing remains in the official HR channel.
 
 ### 1.3 Definitions
 
@@ -45,7 +45,7 @@ Council master requirements in the commissioning brief, Meta WhatsApp Business P
 
 ## 2. Overall Description
 
-The system is a web application with a secure dashboard and public RSVP page. It interacts with WhatsApp, email, calendar providers, CSV/XLSX imports, and a relational database. Users are Admin, Organizer/Staff, and Participant. The system assumes HTTPS, valid sender credentials, correct contact data, and council-approved branding. It must support up to 50 concurrent meetings and 2,000 guests per meeting unless BMC confirms another scale.
+The system is a web application with a secure dashboard, public RSVP page, and public attendance check-in page. It interacts with WhatsApp, email, CSV/XLSX imports, reports, and a relational database. Users are Admin, Organizer/Staff, and Participant. The system assumes HTTPS, valid sender credentials, correct contact data, and council-approved branding.
 
 Every page, menu, label, button, notification, RSVP page, and report must use resource-file translations and offer a persistent visible EN | SW switch. No English-only screen is acceptable.
 
@@ -53,33 +53,28 @@ Every page, menu, label, button, notification, RSVP page, and report must use re
 
 | ID | Requirement | Priority | Source |
 |---|---|---|---|
-| FR-1.1 | The organiser shall create a meeting with title, purpose, start/end, location, map or virtual link, department, type, and priority. | Must | 3.1 |
+| FR-1.1 | The organiser shall create a meeting with title, department, purpose, start/end, location, priority, and status. | Must | 3.1 |
 | FR-1.2 | The system shall save a meeting as draft and publish it. | Must | 3.1 |
 | FR-1.3 | The system shall record edits, reschedules, cancellations, actor, time, and affected invitees. | Must | 3.1 |
-| FR-2.1 | The organiser shall add, search, edit, and review guests per meeting. | Must | 3.2 |
+| FR-2.1 | The organiser shall add guests manually and review guest details and delivery/RSVP status per meeting. | Must | 3.2 |
 | FR-2.2 | The system shall import the supplied CSV/XLSX structure and validate required fields, duplicates, phone, and email. | Must | 3.2 |
-| FR-2.3 | The system shall show added and skipped counts with row-level reasons before commit. | Must | 3.2 |
+| FR-2.3 | The system shall show added and skipped counts with available row-level reasons after import. | Must | 3.2 |
 | FR-3.1 | Send Invites shall create one invitation per guest and select WhatsApp or email according to available contact. | Must | 3.3 |
-| FR-3.2 | Messages shall include title, purpose, date/time, place or link, RSVP link, and calendar link. | Must | 3.3 |
-| FR-3.3 | The system shall send configurable reminders to non-responders. | Should | 3.3 |
-| FR-3.4 | The system shall record provider delivery statuses where exposed. | Must | 3.3 |
+| FR-3.2 | Messages shall include the meeting title, date/time, place, and participant links where supported by the selected channel. | Must | 3.3 |
+| FR-3.3 | The system shall record provider delivery statuses where exposed. | Must | 3.3 |
 | FR-4.1 | A participant shall submit Confirmed, Declined, or Tentative without login. | Must | 3.4 |
-| FR-4.2 | Registration shall create a pending Organizer and require separate email and WhatsApp OTP verification before activation. | Must | 3.4 |
+| FR-4.2 | Registration shall create a pending Organizer and require email OTP verification. WhatsApp OTP verification is additionally required when WhatsApp registration verification is enabled. | Must | 3.4 |
 | FR-4.3 | Each OTP shall be hashed, expire after 10 minutes, be single-use, and enforce resend limits. Pending registrations expire after 24 hours. | Must | 3.4 |
 | FR-5.1 | The Organizer shall see a live Session QR Code only for their own meeting; it shall rotate and expire around the scheduled window. | Must | 3.5 |
 | FR-5.2 | Each invitation shall include a Personal Sign-In Link. The participant page shall request camera access and submit the scanned Session QR Code with that link token. | Must | 3.5 |
 | FR-5.3 | The server shall validate participant, meeting, QR expiry, and one-time use before recording server time as Attended. | Must | 3.5 |
 | FR-4.2 | Decline shall require a short reason. | Must | 3.4 |
 | FR-4.3 | Leave-related absence text shall show an HR procedure notice and shall not create a leave workflow. | Must | 3.4 |
-| FR-4.4 | Responses shall update dashboard counts and send confirmation. | Must | 3.4 |
-| FR-5.1 | The system shall create or update organiser events through Google Calendar and Microsoft Graph adapters. | Should | 3.5 |
-| FR-5.2 | The system shall provide an ICS link for every invitation. | Must | 3.5 |
-| FR-5.3 | The system shall warn about organiser calendar conflicts. | Should | 3.5 |
+| FR-4.4 | Responses shall update dashboard counts. | Must | 3.4 |
 | FR-6.1 | The system shall generate per-meeting RSVP and attendance reports with official header fields. | Must | 3.6 |
-| FR-6.2 | Reports shall include visual breakdown and detailed export. | Must | 3.6 |
-| FR-6.3 | Admin shall generate historical trend reports. | Should | 3.6 |
+| FR-6.2 | Reports shall provide detailed CSV and PDF exports for a meeting. Admin shall also export staff, attendance, audit, and application log data. | Must | 3.6 |
 | FR-7.1 | Admin and Organizer access shall be role-restricted and audited. | Must | 3.7 |
-| FR-7.2 | The language choice shall persist per user or session and apply to UI, messages, RSVP, and reports. | Must | Section 4 |
+| FR-7.2 | The language choice shall persist per browser session and apply to supported UI and participant pages. | Must | Section 4 |
 
 ## 4. Non-Functional Requirements
 
@@ -98,7 +93,7 @@ Every page, menu, label, button, notification, RSVP page, and report must use re
 
 ## 5. External Interface Requirements
 
-WhatsApp uses the Meta Cloud API or approved Tanzania-active BSP, with webhook delivery status, template approval, rate limiting, and access token in environment configuration. Google Calendar uses OAuth 2.0 and Calendar API event create/update/delete. Microsoft Graph uses Entra application registration and delegated or application permissions as approved. Email uses SMTP with TLS. CSV import uses UTF-8 CSV with the template headers; XLSX is accepted by the same importer in the production adapter.
+WhatsApp uses the Meta Cloud API with approved templates and an access token in environment configuration. Email uses SMTP with TLS. CSV import uses the supplied headers and accepts CSV or XLSX files. Meeting reports are downloaded as CSV or PDF. Google Calendar, Microsoft Graph, ICS, SMS, and reminder providers are future integrations, not current interfaces.
 
 ## 6. Data Requirements and Dictionary
 
@@ -124,6 +119,22 @@ WhatsApp uses the Meta Cloud API or approved Tanzania-active BSP, with webhook d
 | UC-03 Import CSV guest list | Organizer wants to load many guests | Download template, upload file, validate rows, review skips, commit valid rows |
 | UC-04 Generate attendance report | Admin wants official record | Select meeting, view aggregate counts, export detailed report, retain generation metadata |
 
-## 8. Traceability and Acceptance
+## 8. Current implementation status
+
+The current application is a working baseline rather than a complete implementation of every original planning requirement. Implemented areas are meeting management, manual and file-based guest import, email and optional WhatsApp notifications, RSVP, rotating QR attendance, staff roles, audit records, bilingual core UI, admin exports, and PWA shell behavior. The test plan should be read as a release checklist for these areas, not as evidence that every historical requirement has already been delivered.
+
+## 9. Future ideas from the original plan
+
+The following planned features are intentionally retained as future ideas because they are not in the current application:
+
+- Google Calendar and Microsoft Graph OAuth integrations.
+- Universal ICS calendar links and calendar conflict warnings.
+- Configurable reminders for non-responders and SMS fallback.
+- Historical trend analytics, department summaries, and a Director read-only dashboard.
+- Advanced import preview, duplicate detection, and richer phone/email validation.
+- Fully bilingual email templates and generated reports.
+- Queue-based notification dispatch and complete provider webhook orchestration.
+
+## 10. Traceability and Acceptance
 
 Acceptance requires passing the test plan in `docs/test-plan.md`, including meeting creation, CSV import, token validation, RSVP, language persistence, role restriction, offline shell, report export, and provider configuration checks.

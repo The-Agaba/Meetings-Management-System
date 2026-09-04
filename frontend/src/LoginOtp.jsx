@@ -9,6 +9,35 @@ import { useToast } from './toast.jsx';
 export default function LoginOtp({ lang, setLang, onLogin }) {
   const t = copy[lang];
   const toast = useToast();
+  const text = lang === 'en' ? {
+    access: 'SECURE STAFF ACCESS',
+    signInHint: 'Sign in with your email and password.',
+    resetPassword: 'Reset password',
+    enterResetCode: 'Enter reset code',
+    resetHint: 'We will email a one-time code if the account exists.',
+    verificationCode: 'Verification code',
+    newPassword: 'New password',
+    sendResetCode: 'Send reset code',
+    setNewPassword: 'Set new password',
+    forgotPassword: 'Forgot password?',
+    backToSignIn: 'Back to sign in',
+    passwordUpdated: 'Password updated. You can now sign in.',
+    officialUse: 'Official internal use only'
+  } : {
+    access: 'UFIKIAJI SALAMA WA WATUMISHI',
+    signInHint: 'Ingia kwa kutumia barua pepe na nenosiri lako.',
+    resetPassword: 'Weka upya nenosiri',
+    enterResetCode: 'Ingiza msimbo wa kuweka upya',
+    resetHint: 'Tutakutumia msimbo wa mara moja kwa barua pepe ikiwa akaunti ipo.',
+    verificationCode: 'Msimbo wa uthibitisho',
+    newPassword: 'Nenosiri jipya',
+    sendResetCode: 'Tuma msimbo wa kuweka upya',
+    setNewPassword: 'Weka nenosiri jipya',
+    forgotPassword: 'Umesahau nenosiri?',
+    backToSignIn: 'Rudi kwenye kuingia',
+    passwordUpdated: 'Nenosiri limesasishwa. Sasa unaweza kuingia.',
+    officialUse: 'Kwa matumizi rasmi ya ndani pekee'
+  };
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [stage, setStage] = useState('login');
@@ -42,7 +71,7 @@ export default function LoginOtp({ lang, setLang, onLogin }) {
           method: 'POST',
           body: JSON.stringify({ email: form.email, code: resetCode, password: newPassword })
         });
-        toast('Password updated. You can now sign in.', 'success');
+        toast(text.passwordUpdated, 'success');
         setStage('login');
         setResetCode('');
         setNewPassword('');
@@ -55,17 +84,17 @@ export default function LoginOtp({ lang, setLang, onLogin }) {
     }
   };
 
-  const title = stage === 'login' ? t.signIn : stage === 'forgot-request' ? 'Reset password' : 'Enter reset code';
+  const title = stage === 'login' ? t.signIn : stage === 'forgot-request' ? text.resetPassword : text.enterResetCode;
 
   return (
     <>
-      <OfflineBanner />
+      <OfflineBanner lang={lang} />
       <Brand lang={lang} setLang={setLang} />
       <main className="auth-shell">
         <section className="auth-card">
-          <div className="auth-kicker"><ShieldCheck size={16} /> SECURE STAFF ACCESS</div>
+          <div className="auth-kicker"><ShieldCheck size={16} /> {text.access}</div>
           <h1>{title}</h1>
-          <p className="muted">{stage === 'login' ? 'Sign in with your email and password. OTP verification is only required when registering a new account.' : 'We will email a one-time code if the account exists.'}</p>
+          <p className="muted">{stage === 'login' ? text.signInHint : text.resetHint}</p>
 
           <form onSubmit={submit}>
             {(stage === 'login' || stage === 'forgot-request') && (
@@ -91,15 +120,15 @@ export default function LoginOtp({ lang, setLang, onLogin }) {
             {stage === 'forgot-confirm' && (
               <>
                 <label>
-                  Verification code
-                  <OtpBoxes label="Verification code" value={resetCode} onChange={setResetCode} numeric />
+                  {text.verificationCode}
+                  <OtpBoxes label={text.verificationCode} value={resetCode} onChange={setResetCode} numeric />
                 </label>
-                <label>New password<input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={8} required autoComplete="new-password" /></label>
+                <label>{text.newPassword}<input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={8} required autoComplete="new-password" /></label>
               </>
             )}
 
             <button className="primary full" disabled={loading} style={{ marginTop: 10 }}>
-              {loading ? <Loader2 size={17} className="spinner" /> : (stage === 'login' ? t.continue : stage === 'forgot-request' ? 'Send reset code' : 'Set new password')}
+              {loading ? <Loader2 size={17} className="spinner" /> : (stage === 'login' ? t.continue : stage === 'forgot-request' ? text.sendResetCode : text.setNewPassword)}
               {!loading && <ChevronRight size={17} />}
             </button>
           </form>
@@ -107,17 +136,17 @@ export default function LoginOtp({ lang, setLang, onLogin }) {
           {stage === 'login' && (
             <>
               <button type="button" className="text-button auth-link" style={{ border: 0, width: '100%' }} onClick={() => setStage('forgot-request')}>
-                Forgot password?
+                {text.forgotPassword}
               </button>
               <a className="auth-link" href="/register.html" onClick={e => { e.preventDefault(); location.replace('/register.html'); }}>{t.register}</a>
             </>
           )}
           {stage !== 'login' && (
             <button type="button" className="text-button auth-link" style={{ border: 0, width: '100%' }} onClick={() => { setStage('login'); setResetCode(''); setNewPassword(''); setDevOtp(''); }}>
-              Back to sign in
+              {text.backToSignIn}
             </button>
           )}
-          <div className="auth-footer">Official internal use only</div>
+          <div className="auth-footer">{text.officialUse}</div>
         </section>
       </main>
     </>

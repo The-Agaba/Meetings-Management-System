@@ -109,11 +109,26 @@ public class GuestImportService {
             skipped.add(Map.of("row", rowNumber, "reason", "name and phone or email required"));
             return false;
         }
+        String normalizedPhone;
+        try {
+            normalizedPhone = TanzaniaPhone.normalize(phone);
+        } catch (IllegalArgumentException e) {
+            skipped.add(Map.of("row", rowNumber, "reason", e.getMessage()));
+            return false;
+        }
+        String normalizedEmail = email == null || email.isBlank() ? null : email.trim().toLowerCase();
+        boolean duplicate = guests.findByMeetingId(meeting.id).stream().anyMatch(existing ->
+            (normalizedPhone != null && normalizedPhone.equals(TanzaniaPhone.normalize(existing.phone)))
+                || (normalizedEmail != null && normalizedEmail.equalsIgnoreCase(existing.email)));
+        if (duplicate) {
+            skipped.add(Map.of("row", rowNumber, "reason", "email or WhatsApp number already exists for this meeting"));
+            return false;
+        }
         Guest guest = new Guest();
         guest.meeting = meeting;
         guest.name = name.trim();
-        guest.phone = phone == null ? null : phone.trim();
-        guest.email = email == null ? null : email.trim();
+        guest.phone = normalizedPhone;
+        guest.email = normalizedEmail;
         guest.roleTitle = roleTitle;
         guest.organization = organization;
         guests.save(guest);

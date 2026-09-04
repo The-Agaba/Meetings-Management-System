@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { WifiOff } from 'lucide-react';
+import { uiText } from './i18n.js';
 
-export default function OfflineBanner() {
+export default function OfflineBanner({ lang = 'en' }) {
   const [offline, setOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
@@ -19,7 +20,7 @@ export default function OfflineBanner() {
   return (
     <div className="offline-banner" role="status">
       <WifiOff size={16} />
-      <span>You are offline. Cached pages are available; sign-in and live updates need a connection.</span>
+      <span>{uiText(lang).offline}</span>
     </div>
   );
 }

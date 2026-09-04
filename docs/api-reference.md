@@ -72,6 +72,12 @@ Guest import columns: `name`, `phone`, `email`, `organization`, `role_title`.
 | PUT | `/admin/accounts/{id}` | Update `{role,active}` | Admin |
 | GET | `/admin/attendance` | Cross-meeting attendance records | Admin |
 | GET | `/admin/audit-logs` | Recent audit events | Admin |
+| GET | `/admin/logs?lines=1000` | Read the latest application log lines | Admin |
+| GET | `/admin/logs/download` | Download the complete `application.log` file | Admin |
+| GET | `/admin/integrations` | WhatsApp configuration status | Admin |
+| POST | `/admin/integrations/whatsapp-test` | Send a WhatsApp test `{phone,message?}` | Admin |
+
+The admin interface also exports the loaded staff account, attendance, and audit data as CSV files in the browser. These exports do not create additional API routes.
 
 ## Security notes
 

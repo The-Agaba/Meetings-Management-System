@@ -26,7 +26,7 @@ Date: 23 August 2026
 
 Bukoba Municipal Council currently coordinates many meetings through phone calls, printed notices, and word of mouth. This creates avoidable missed attendance, inconsistent participant records, and no reliable RSVP trail for management review. The proposed Meeting Management and Notification System will provide one auditable workflow for creating meetings, importing guests, dispatching invitations through WhatsApp and email, collecting Confirm, Decline, or Tentative responses, synchronising the organiser's calendar, and producing official attendance reports.
 
-The system will be delivered as a mobile-first Progressive Web App. Organisers and administrators will use a secure dashboard. Participants will use a low-bandwidth link-based RSVP page without creating an account. WhatsApp will be the primary channel, with email as a secondary channel and SMS listed as a future enhancement. Every screen, notification, RSVP page, and generated report will support a persistent English / Swahili toggle. This is mandatory scope.
+The system is delivered as a mobile-first Progressive Web App. Organisers and administrators use a secure dashboard. Participants use a low-bandwidth link-based RSVP page without creating an account. WhatsApp is optional, with email as a secondary channel. The current UI supports English and Kiswahili across the main staff and participant workflows.
 
 Expected impact includes improved attendance visibility, faster communication, better records management, fewer manual follow-ups, and a defensible audit trail. The recommended delivery is a 12-week Phase 1 followed by a controlled pilot and handover. A rough order-of-magnitude Phase 1 budget is **TZS 45,000,000 to TZS 85,000,000**, excluding third-party messaging charges, hosting choice, taxes, and official branding production. Final costs require confirmation of scale, hosting, procurement rules, and integration credentials.
 
@@ -44,11 +44,11 @@ Objectives are to digitise meeting creation, provide traceable invitations and r
 
 ### In scope
 
-Meeting creation, draft and publication, reschedule and cancellation notices, manual and CSV guest management, WhatsApp and email adapter interfaces, reminders, tokenised RSVP, leave-procedure notice for relevant decline reasons, Google and Outlook calendar integration interfaces, ICS delivery, live RSVP counts, CSV and PDF-ready reporting layouts, RBAC, audit logging, bilingual resources, PWA installation, offline shell caching, and deployment documentation.
+Meeting creation, draft and publication, reschedule and cancellation notices, manual and CSV/XLSX guest management, WhatsApp and email notifications, tokenised RSVP, leave-procedure notice for relevant decline reasons, live RSVP counts, rotating QR attendance, CSV and PDF reports, admin CSV and application-log exports, RBAC, audit logging, bilingual resources, PWA installation, offline shell status, and deployment documentation.
 
 ### Phased delivery
 
-Phase 1 delivers core meeting management, guest import, notification adapters, RSVP, calendar links, and basic reporting. Phase 2 adds advanced analytics, SMS fallback, Director oversight, physical QR check-in, and multi-department administration after council decisions.
+The current baseline delivers core meeting management, guest import, notification adapters, RSVP, QR attendance, administration, exports, and reporting. Future phases can add calendar integrations, advanced analytics, SMS fallback, Director oversight, and richer governance after council decisions.
 
 ### Out of scope
 
@@ -60,7 +60,7 @@ Delivery will use short, reviewable increments: discovery and confirmation, foun
 
 ## 6. System Overview
 
-The default architecture is a Spring Boot REST backend, responsive PWA frontend, Spring Data JPA with PostgreSQL, signed expiring RSVP tokens, staff session tokens, and provider adapters for Meta WhatsApp Cloud API, SMTP, Google Calendar API, and Microsoft Graph. Production uses PostgreSQL and HTTPS.
+The default architecture is a Spring Boot REST backend, responsive PWA frontend, Spring Data JPA with PostgreSQL, signed expiring RSVP tokens, staff session tokens, and provider adapters for Meta WhatsApp Cloud API and SMTP. Production uses PostgreSQL and HTTPS.
 
 The header of every application page and official report must show both the National Coat of Arms of Tanzania and the Bukoba Municipal Council logo. The repository therefore exposes an official asset location, but authorised high-resolution files must be supplied by the relevant government offices before go-live. No emblem is to be redrawn or approximated.
 
@@ -121,13 +121,23 @@ This is a rough order-of-magnitude estimate only. WhatsApp conversation charges,
 
 ## 12. Open Questions and Decisions Required
 
-1. Should physical QR check-in be included, or is RSVP-based attendance sufficient?
-2. Should SMS fallback be Phase 1 or Phase 2?
-3. Will ICT administer the system, or will departments have focal persons?
-4. Will hosting use government infrastructure, a Tanzania-based provider, or cloud hosting?
-5. Which official branding files and usage rules must be applied?
-6. What meetings-per-month and guests-per-meeting volumes should size infrastructure and WhatsApp budget?
-7. Is a Municipal Director or Executive read-only role required?
+1. Will ICT administer the system, or will departments have focal persons?
+2. Will hosting use government infrastructure, a Tanzania-based provider, or cloud hosting?
+3. Which official branding files and usage rules must be applied?
+4. What meetings-per-month and guests-per-meeting volumes should size infrastructure and WhatsApp budget?
+5. Is a Municipal Director or Executive read-only role required?
+
+## Future ideas
+
+These items appeared in the original planning material but are not available in the current application. They are retained as a backlog rather than promised features:
+
+- Google Calendar and Microsoft Graph OAuth integrations.
+- Universal ICS links and calendar conflict warnings.
+- Configurable reminders for non-responders and SMS fallback.
+- Historical trends, department summaries, and Director read-only dashboards.
+- Advanced duplicate detection, import preview, and richer field validation.
+- Fully bilingual notification templates and generated reports.
+- Queue-based delivery and complete provider webhook orchestration.
 
 ## 13. Appendices
 

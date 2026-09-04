@@ -43,6 +43,17 @@ function ResendCooldown({ seconds, label, onResend, resending, lang }) {
 export default function Register({ lang, setLang }) {
   const t = copy[lang];
   const toast = useToast();
+  const text = lang === 'en'
+    ? {
+        access: 'SECURE STAFF REGISTRATION',
+        createHint: 'Create your organiser account. Email verification is required once before you can sign in with your password.',
+        confirmPassword: 'Confirm password'
+      }
+    : {
+        access: 'USAJILI SALAMA WA WATUMISHI',
+        createHint: 'Unda akaunti yako ya mratibu. Uthibitishaji wa barua pepe unahitajika mara moja kabla ya kuingia kwa nenosiri lako.',
+        confirmPassword: 'Thibitisha nenosiri'
+      };
 
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
   const [stage, setStage] = useState('details');
@@ -134,11 +145,11 @@ export default function Register({ lang, setLang }) {
 
   return (
     <>
-      <OfflineBanner />
+      <OfflineBanner lang={lang} />
       <Brand lang={lang} setLang={setLang} />
       <main className="auth-shell">
         <section className="auth-card">
-          <div className="auth-kicker"><ShieldCheck size={16} /> SECURE STAFF REGISTRATION</div>
+          <div className="auth-kicker"><ShieldCheck size={16} /> {text.access}</div>
           <h1>{done ? t.verifyOtp : t.register}</h1>
           {done ? (
             <>
@@ -147,7 +158,7 @@ export default function Register({ lang, setLang }) {
             </>
           ) : (
             <>
-              <p className="muted">{stage === 'details' ? 'Create your organiser account. Email OTP verification is required once before you can sign in with your password.' : whatsapp ? t.otpBoth : t.otpEmail}</p>
+              <p className="muted">{stage === 'details' ? text.createHint : whatsapp ? t.otpBoth : t.otpEmail}</p>
               <form onSubmit={submit}>
                 {stage === 'details' ? (
                   <>
@@ -159,7 +170,7 @@ export default function Register({ lang, setLang }) {
                     </label>
                     <label>{t.phone}
                       <div className="input-wrap"><Phone size={17} />
-                        <input id="reg-phone" type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} required />
+                        <input id="reg-phone" type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="07******** or +2557********" required />
                       </div>
                     </label>
                     <label>{t.password}
@@ -170,7 +181,7 @@ export default function Register({ lang, setLang }) {
                         </button>
                       </div>
                     </label>
-                    <label>{lang === 'en' ? 'Confirm password' : 'Thibitisha nenosiri'}
+                    <label>{text.confirmPassword}
                       <div className="input-wrap">
                         <input id="reg-confirm-password" type={showConfirmPassword ? 'text' : 'password'} minLength="8" value={form.confirmPassword} onChange={e => setForm({ ...form, confirmPassword: e.target.value })} required />
                         <button type="button" className="icon-button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>

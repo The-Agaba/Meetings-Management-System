@@ -8,7 +8,7 @@
 6. Run the service with a process manager, for example `java -jar backend/target/bmc-meetings-1.0.0.jar`.
 7. Configure Nginx to proxy HTTPS traffic to port 8000 and obtain a trusted certificate. PWAs require HTTPS except localhost.
 8. Restrict database access, schedule daily encrypted backups, and test restoration.
-9. Test login, meeting creation, import, invite generation, RSVP, report download, EN/SW toggle, mobile display, and offline shell.
+9. Test login, meeting creation, import, invite generation, RSVP, QR attendance, report download, admin exports, WhatsApp test delivery if enabled, EN/SW toggle, mobile display, and offline shell.
 10. Run the pilot with selected departments and retain the signed go-live checklist.
 
 ## Installation checks

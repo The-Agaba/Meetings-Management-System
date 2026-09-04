@@ -1,6 +1,9 @@
 package tz.go.bukobamc.meetings.api;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import tz.go.bukobamc.meetings.model.User;
@@ -53,6 +56,24 @@ public class AdminController {
             return Map.of("logs", String.join("\n", tail));
         } catch (IOException e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to read logs");
+        }
+    }
+
+    @GetMapping("/logs/download")
+    public ResponseEntity<byte[]> downloadLogs(@RequestHeader("Authorization") String auth) {
+        requireAdmin(auth);
+        Path logFile = Paths.get("logs/app.log");
+        if (!Files.exists(logFile)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Log file not found or has not been created yet.");
+        }
+        try {
+            byte[] content = Files.readAllBytes(logFile);
+            return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=application.log")
+                .contentType(MediaType.TEXT_PLAIN)
+                .body(content);
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to download logs", e);
         }
     }
 
