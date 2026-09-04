@@ -2,9 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle, Ban, Bell, CalendarDays, CheckCircle2, ChevronRight, Clock3, Download,
   FileUp, Loader2, LayoutDashboard, LogOut, MapPin, MessageCircle, Plus,
-  QrCode, Send, Settings2, ShieldCheck, UserCog, Users, X
+  QrCode, RefreshCw, Search, Send, Settings2, ShieldCheck, Terminal, Trash2, UserCog, Users, X
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import jsQR from 'jsqr';
 import { Brand } from './ui.jsx';
 import { copy, api, parseApiError } from './utils.js';
 import LoginOtp from './LoginOtp.jsx';
@@ -289,7 +290,7 @@ function QrSection({ meetingId, t }) {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const timerRef = useRef(null);
 
-  const generate = async () => {
+  const generate = async (isAuto = false) => {
     setLoading(true);
     try {
       const data = await api(`/api/meetings/${meetingId}/attendance/qr`);
@@ -298,12 +299,19 @@ function QrSection({ meetingId, t }) {
       clearInterval(timerRef.current);
       timerRef.current = setInterval(() => {
         const secs = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
-        setSecondsLeft(secs);
-        if (secs === 0) clearInterval(timerRef.current);
+        if (secs === 0) {
+          clearInterval(timerRef.current);
+          generate(true); // Auto-refresh when it hits 0
+        } else {
+          setSecondsLeft(secs);
+        }
       }, 1000);
-      toast('QR code generated. Display it for participants to scan.', 'success');
+      
+      if (isAuto !== true) {
+        toast('QR code generated. Display it for participants to scan.', 'success');
+      }
     } catch (err) {
-      toast(err.message, 'error');
+      if (isAuto !== true) toast(err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -320,20 +328,20 @@ function QrSection({ meetingId, t }) {
           <p className="qr-expiry">
             {secondsLeft > 0
               ? <><strong>{secondsLeft}s</strong> remaining — display on screen for participants</>
-              : <>QR expired. <button className="text-button" onClick={generate}>Generate a new one</button></>
+              : <>Refreshing QR...</>
             }
           </p>
           {secondsLeft > 0 && (
-            <button className="secondary" onClick={generate}>
-              <QrCode size={15} /> Refresh QR
+            <button className="secondary" onClick={() => generate(false)} disabled={loading}>
+              {loading ? <Loader2 size={15} className="spinner" /> : <RefreshCw size={15} />} Refresh QR
             </button>
           )}
-          <p className="qr-hint">
+          <p className="qr-hint" style={{ marginTop: 12 }}>
             Participants scan this with their Personal Sign-In Link page to record attendance.
           </p>
         </div>
       ) : (
-        <button className="secondary" onClick={generate} disabled={loading}>
+        <button className="secondary" onClick={() => generate(false)} disabled={loading}>
           {loading ? <Loader2 size={15} className="spinner" /> : <QrCode size={15} />}
           Generate Session QR Code
         </button>
@@ -661,10 +669,22 @@ function DetailModal({ meetingId, t, onClose }) {
                     {[g.organization || g.role_title, g.phone, g.email].filter(Boolean).join(' · ') || 'Participant'}
                   </small>
                 </span>
-                <span className={`badge ${g.attended ? 'green' : 'grey'}`}>{g.attended ? 'attended' : 'not yet'}</span>
-                <span className={`badge ${g.status === 'confirmed' ? 'green' : g.status === 'declined' ? 'grey' : 'gold'}`}>
-                  {g.status}
+                <span className={`badge ${g.attended ? 'green' : 'grey'}`}>
+                  {g.attended ? 'Checked in' : m.past ? 'Absent' : 'Not checked in'}
                 </span>
+                <span className={`badge ${g.status === 'confirmed' ? 'green' : g.status === 'declined' ? 'grey' : 'gold'}`}>
+                  {g.status === 'no_response' ? 'No RSVP' : g.status.charAt(0).toUpperCase() + g.status.slice(1)}
+                </span>
+                {g.whatsapp_status && (
+                  <span className={`badge ${
+                    g.whatsapp_status === 'READ' ? 'green' :
+                    g.whatsapp_status === 'DELIVERED' ? 'green' :
+                    g.whatsapp_status === 'SENT' ? 'gold' :
+                    g.whatsapp_status === 'FAILED' ? 'red' : 'grey'
+                  }`} title={g.whatsapp_error || ''}>
+                    WA: {g.whatsapp_status.toLowerCase()}
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -801,6 +821,14 @@ function AdminPanel({ user }) {
   const [waTesting, setWaTesting] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  /* ── System Logs state ── */
+  const [logContent, setLogContent] = useState('');
+  const [logLines, setLogLines] = useState(500);
+  const [logSearch, setLogSearch] = useState('');
+  const [logLoading, setLogLoading] = useState(false);
+  const [logAutoRefresh, setLogAutoRefresh] = useState(false);
+  const logEndRef = useRef(null);
+
   const refresh = () => {
     setLoading(true);
     Promise.all([
@@ -812,10 +840,50 @@ function AdminPanel({ user }) {
   };
   useEffect(() => { refresh(); }, []);
 
+  /* ── Fetch system logs ── */
+  const fetchLogs = async () => {
+    setLogLoading(true);
+    try {
+      const data = await api(`/api/admin/logs?lines=${logLines}`);
+      setLogContent(data.logs || 'No log data available.');
+      setTimeout(() => {
+        if (logEndRef.current) logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } catch (err) {
+      toast(err.message, 'error');
+      setLogContent('Failed to load logs.');
+    } finally {
+      setLogLoading(false);
+    }
+  };
+
+  // Fetch logs when switching to the logs tab
+  useEffect(() => {
+    if (tab === 'logs') fetchLogs();
+  }, [tab, logLines]);
+
+  // Auto-refresh logs every 10 seconds
+  useEffect(() => {
+    if (!logAutoRefresh || tab !== 'logs') return;
+    const interval = setInterval(fetchLogs, 10000);
+    return () => clearInterval(interval);
+  }, [logAutoRefresh, tab, logLines]);
+
   const updateAccount = async (id, patch) => {
     try {
       await api(`/api/admin/accounts/${id}`, { method: 'PUT', body: JSON.stringify(patch) });
       toast('Account updated.', 'success');
+      refresh();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  };
+
+  const deleteUser = async (id, name) => {
+    if (!confirm(`Are you sure you want to delete user "${name}"? This action cannot be undone.`)) return;
+    try {
+      await api(`/api/admin/users/${id}`, { method: 'DELETE' });
+      toast('User deleted.', 'success');
       refresh();
     } catch (err) {
       toast(err.message, 'error');
@@ -840,6 +908,15 @@ function AdminPanel({ user }) {
     }
   };
 
+  // Filter log lines by search term
+  const filteredLogs = logSearch.trim()
+    ? logContent.split('\n').filter(line => line.toLowerCase().includes(logSearch.toLowerCase())).join('\n')
+    : logContent;
+
+  const logLineCount = logContent ? logContent.split('\n').filter(l => l.trim()).length : 0;
+  const errorCount = logContent ? logContent.split('\n').filter(l => /\bERROR\b/i.test(l)).length : 0;
+  const warnCount = logContent ? logContent.split('\n').filter(l => /\bWARN\b/i.test(l)).length : 0;
+
   if (user?.role !== 'admin') {
     return <div className="empty">Administrator access required.</div>;
   }
@@ -847,6 +924,7 @@ function AdminPanel({ user }) {
   const tabs = [
     ['accounts', 'Staff accounts'],
     ['attendance', 'Attendance'],
+    ['logs', 'System Logs'],
     ['integrations', 'Integrations'],
     ['audit', 'Audit log']
   ];
@@ -889,9 +967,12 @@ function AdminPanel({ user }) {
                       </select>
                     </td>
                     <td><span className={`badge ${a.active ? 'green' : 'grey'}`}>{a.status}</span></td>
-                    <td>
+                    <td style={{ display: 'flex', gap: 6 }}>
                       <button className="text-button" onClick={() => updateAccount(a.id, { active: !a.active })}>
                         {a.active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button className="text-button" style={{ color: 'var(--red, #e53e3e)' }} onClick={() => deleteUser(a.id, a.name)} title="Delete user">
+                        <Trash2 size={14} />
                       </button>
                     </td>
                   </tr>
@@ -974,7 +1055,7 @@ function AdminPanel({ user }) {
             </p>
           </div>
         </section>
-      ) : (
+      ) : tab === 'audit' ? (
         <section className="panel">
           <div className="panel-head"><h2>Audit log</h2></div>
           <div className="table-wrap">
@@ -993,7 +1074,66 @@ function AdminPanel({ user }) {
             </table>
           </div>
         </section>
-      )}
+      ) : tab === 'logs' ? (
+        <section className="panel">
+          <div className="panel-head">
+            <div>
+              <h2><Terminal size={18} style={{ verticalAlign: 'middle', marginRight: 8 }} />System Logs</h2>
+              <p className="muted">Application log output from the backend server</p>
+            </div>
+          </div>
+          <div className="log-controls">
+            <div className="log-stats">
+              <span className="log-stat">{logLineCount} lines</span>
+              {errorCount > 0 && <span className="log-stat log-stat-error">{errorCount} errors</span>}
+              {warnCount > 0 && <span className="log-stat log-stat-warn">{warnCount} warnings</span>}
+            </div>
+            <div className="log-actions">
+              <div className="log-search-wrap">
+                <Search size={14} />
+                <input
+                  type="text"
+                  className="log-search"
+                  placeholder="Filter logs..."
+                  value={logSearch}
+                  onChange={e => setLogSearch(e.target.value)}
+                />
+              </div>
+              <select className="log-lines-select" value={logLines} onChange={e => setLogLines(Number(e.target.value))}>
+                <option value={100}>Last 100 lines</option>
+                <option value={250}>Last 250 lines</option>
+                <option value={500}>Last 500 lines</option>
+                <option value={1000}>Last 1000 lines</option>
+                <option value={5000}>Last 5000 lines</option>
+              </select>
+              <button
+                className={`log-btn ${logAutoRefresh ? 'active' : ''}`}
+                onClick={() => setLogAutoRefresh(p => !p)}
+                title={logAutoRefresh ? 'Stop auto-refresh' : 'Auto-refresh every 10s'}
+              >
+                <RefreshCw size={14} className={logAutoRefresh ? 'spinner-slow' : ''} />
+                {logAutoRefresh ? 'Live' : 'Auto'}
+              </button>
+              <button className="log-btn" onClick={fetchLogs} disabled={logLoading} title="Refresh logs now">
+                {logLoading ? <Loader2 size={14} className="spinner" /> : <RefreshCw size={14} />}
+                Refresh
+              </button>
+            </div>
+          </div>
+          <div className="log-viewer">
+            <pre className="log-content">
+              {filteredLogs.split('\n').map((line, i) => {
+                let cls = 'log-line';
+                if (/\bERROR\b/i.test(line)) cls += ' log-error';
+                else if (/\bWARN\b/i.test(line)) cls += ' log-warn';
+                else if (/\bDEBUG\b/i.test(line)) cls += ' log-debug';
+                return <div key={i} className={cls}><span className="log-line-num">{i + 1}</span>{line}</div>;
+              })}
+              <div ref={logEndRef} />
+            </pre>
+          </div>
+        </section>
+      ) : null}
     </>
   );
 }
@@ -1188,6 +1328,23 @@ function Account({ lang, user, onBack, onUpdated }) {
           </button>
         </form>
       )}
+      {!loading && (
+        <div className="account-form" style={{ marginTop: 28 }}>
+          <div className="eyebrow green">WHATSAPP MESSAGING</div>
+          <h2 style={{ margin: '8px 0 16px', fontSize: 18 }}>WhatsApp Business</h2>
+          <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: 16 }}>
+            <p style={{ margin: '0 0 10px', fontWeight: 600 }}>System default number</p>
+            <p className="muted" style={{ margin: '0 0 16px', fontSize: 13 }}>Messages will be sent using the system default WhatsApp Business number configured by the administrator.</p>
+            <p style={{ margin: '0 0 16px', fontWeight: 600 }}>My WhatsApp Business number</p>
+            <div style={{ background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: 8, padding: 14, marginBottom: 10 }}>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--text)' }}>
+                <strong>🚀 Coming Soon</strong> — Connecting your own WhatsApp Business number is an advanced feature that will be available in a future update.
+              </p>
+            </div>
+            <p className="muted" style={{ margin: 0, fontSize: 13 }}>For now, all WhatsApp invitations are sent from the system default number.</p>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -1201,8 +1358,10 @@ function Rsvp({ lang, setLang }) {
   const [data, setData] = useState(null);
   const [status, setStatus] = useState('');
   const [reason, setReason] = useState('');
+  const [document, setDocument] = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const fileRef = useRef(null);
 
   useEffect(() => {
     if (token) {
@@ -1229,13 +1388,36 @@ function Rsvp({ lang, setLang }) {
     );
   }
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) { setDocument(null); return; }
+    if (file.type !== 'application/pdf') {
+      toast('Only PDF files are accepted.', 'error');
+      e.target.value = '';
+      setDocument(null);
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      toast('File must be less than 3MB.', 'error');
+      e.target.value = '';
+      setDocument(null);
+      return;
+    }
+    setDocument(file);
+  };
+
   const submit = async () => {
     setLoading(true);
     try {
+      const fd = new FormData();
+      fd.append('status', status);
+      if (reason) fd.append('reason', reason);
+      fd.append('language', lang);
+      if (document) fd.append('document', document);
+
       const r = await fetch('/api/rsvp/' + token, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, reason, language: lang })
+        body: fd
       });
       const body = await r.json().catch(() => ({}));
       if (r.ok) {
@@ -1273,16 +1455,48 @@ function Rsvp({ lang, setLang }) {
             ))}
           </div>
           {status === 'declined' && (
-            <label>{t.reason}<textarea value={reason} onChange={e => setReason(e.target.value)} required /></label>
+            <>
+              <div className="notice notice-amber" style={{ margin: '16px 0', padding: '14px 16px', background: '#fff8e1', borderLeft: '4px solid #F9A825', borderRadius: '8px' }}>
+                <p style={{ margin: '0 0 6px', fontWeight: 700, fontSize: '13px', color: '#92400e', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  ⚠ {lang === 'en' ? 'Important Notice' : 'Taarifa Muhimu'}
+                </p>
+                <p style={{ margin: 0, fontSize: '14px', color: '#78350f', lineHeight: 1.6 }}>
+                  {lang === 'en'
+                    ? 'Please note that submitting this form does not replace formal procedures for reporting non-attendance. You are still required to follow your department\'s established protocols for leave, absence, or any other applicable administrative processes.'
+                    : 'Tafadhali kumbuka kwamba kuwasilisha fomu hii hakuchukui nafasi ya taratibu rasmi za kuripoti kutokuwepo. Bado unahitajika kufuata itifaki za idara yako kwa likizo, kutokuwepo, au mchakato mwingine wowote wa kiutawala unaohusika.'}
+                </p>
+              </div>
+              <label>{t.reason}<textarea value={reason} onChange={e => setReason(e.target.value)} required placeholder={lang === 'en' ? 'Please explain why you cannot attend...' : 'Tafadhali eleza kwa nini huwezi kuhudhuria...'} /></label>
+              {/leave|sick|medical|maternity|annual/i.test(reason) && (
+                <div className="notice notice-blue">
+                  {lang === 'en'
+                    ? 'If this is official leave, please also follow your department HR leave procedures.'
+                    : 'Ikiwa hii ni likizo rasmi, tafadhali fuata taratibu za HR za idara yako.'}
+                </div>
+              )}
+              <label style={{ marginTop: 12 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  {lang === 'en' ? 'Supporting document' : 'Nyaraka ya msaada'}
+                  <span className="badge" style={{ background: '#e5e7eb', color: '#6b7280', fontSize: '11px', padding: '2px 8px', borderRadius: '999px' }}>
+                    {lang === 'en' ? 'Optional' : 'Hiari'}
+                  </span>
+                </span>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={handleFileChange}
+                  style={{ padding: '10px', border: '1px dashed #d1d5db', borderRadius: '8px', width: '100%', background: '#f9fafb', cursor: 'pointer' }}
+                />
+                <small className="muted" style={{ display: 'block', marginTop: 4 }}>
+                  {lang === 'en'
+                    ? 'PDF only, max 3MB (e.g. leave form, medical certificate)'
+                    : 'PDF pekee, upeo wa 3MB (k.m. fomu ya likizo, cheti cha matibabu)'}
+                </small>
+              </label>
+            </>
           )}
-          {status === 'declined' && /leave|sick|medical|maternity|annual/i.test(reason) && (
-            <div className="notice notice-blue">
-              {lang === 'en'
-                ? 'If this is official leave, please also follow your department HR leave procedures.'
-                : 'Ikiwa hii ni likizo rasmi, tafadhali fuata taratibu za HR za idara yako.'}
-            </div>
-          )}
-          <button className="primary full" disabled={!status || loading || submitted} onClick={submit}>
+          <button className="primary full" disabled={!status || loading || submitted} onClick={submit} style={{ marginTop: 20 }}>
             {loading ? <Loader2 size={17} className="spinner" /> : <>{t.submit}<ChevronRight size={17} /></>}
           </button>
           {submitted && <p className="success">{t.responseSaved}</p>}
@@ -1349,27 +1563,30 @@ function Attendance({ lang, setLang }) {
         await videoRef.current.play();
       }
       
-      if ('BarcodeDetector' in window) {
-        const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-        const scan = async () => {
-          if (!streamRef.current) return;
-          try {
-            if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-              const codes = await detector.detect(videoRef.current);
-              if (codes.length > 0 && codes[0].rawValue) {
-                return submit(codes[0].rawValue);
-              }
-            }
-          } catch (e) {
-            console.error('Barcode detection error:', e);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      
+      const scan = () => {
+        if (!streamRef.current || !videoRef.current) return;
+        
+        if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+          canvas.width = videoRef.current.videoWidth;
+          canvas.height = videoRef.current.videoHeight;
+          ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: 'dontInvert',
+          });
+          
+          if (code && code.data) {
+            return submit(code.data);
           }
-          requestAnimationFrame(scan);
-        };
-        scan();
-      } else {
-        // Fallback for browsers that don't support BarcodeDetector
-        setError('Your browser does not support automatic QR code scanning. Please paste the QR payload below.');
-      }
+        }
+        requestAnimationFrame(scan);
+      };
+      
+      // Start the scan loop
+      requestAnimationFrame(scan);
     } catch (e) {
       setScanning(false);
       setScanStatus('idle');
@@ -1465,13 +1682,6 @@ function Attendance({ lang, setLang }) {
                   </button>
                 )}
                 
-                {scanning && !('BarcodeDetector' in window) && (
-                  <label className="fallback-input">
-                    Or paste QR payload manually:
-                    <textarea placeholder='{"meetingId": 123, "sessionToken": "..."}' onChange={e => e.target.value && submit(e.target.value)} />
-                  </label>
-                )}
-                
                 {scanning && (
                   <button className="secondary full" style={{ marginTop: 16 }} onClick={stopScanner}>
                     Stop scanner
@@ -1507,7 +1717,7 @@ export default function App() {
     }
     api('/api/me')
       .then(p => {
-        setUser({ name: p.name, role: p.role, email: p.email });
+        setUser({ name: p.name, role: p.role, email: p.email, whatsappConnected: !!p.whatsappConnected });
         history.replaceState(null, '', '/');
       })
       .catch(() => localStorage.removeItem('token'))
@@ -1558,6 +1768,15 @@ export default function App() {
   return (
     <>
       <OfflineBanner />
+      {current && !current.whatsappConnected && !account && !adminView && !sessionStorage.getItem('wa_dismissed') && (
+        <div style={{ background: 'linear-gradient(135deg, #1b5e20 0%, #25d366 100%)', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', fontSize: 14, color: '#fff' }}>
+          <span>📱 Connect your WhatsApp Business number to send meeting invitations from your own number.</span>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <button onClick={() => { setAccount(true); setAdminView(false); }} style={{ background: '#fff', color: '#1b5e20', border: 'none', borderRadius: 6, padding: '6px 14px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>Connect WhatsApp</button>
+            <button onClick={() => { sessionStorage.setItem('wa_dismissed', '1'); setUser(prev => ({ ...prev })); }} style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 6, padding: '6px 14px', fontWeight: 500, cursor: 'pointer', fontSize: 13 }}>Use default number</button>
+          </div>
+        </div>
+      )}
       <Shell
       lang={lang} setLang={setLang} user={current}
       onLogout={handleLogout}

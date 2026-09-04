@@ -83,16 +83,16 @@ public class NotificationService {
         emailHtml(to, subject, html, plain);
     }
 
-    public void meetingInvitationEmail(Guest guest, Meeting meeting, String organizerName, String checkInLink) {
+    public void meetingInvitationEmail(Guest guest, Meeting meeting, String organizerName, String checkInLink, String rsvpLink) {
         if (guest.email == null || guest.email.isBlank()) return;
         String subject = "You're invited: " + meeting.title;
-        String html = templates.meetingInvitation(guest, meeting, organizerName, checkInLink);
-        String plain = templates.meetingInvitationPlain(guest, meeting, organizerName, checkInLink);
+        String html = templates.meetingInvitation(guest, meeting, organizerName, checkInLink, rsvpLink);
+        String plain = templates.meetingInvitationPlain(guest, meeting, organizerName, checkInLink, rsvpLink);
         emailHtml(guest.email, subject, html, plain);
     }
 
-    public String meetingInvitationPlain(Guest guest, Meeting meeting, String organizerName, String checkInLink) {
-        return templates.meetingInvitationPlain(guest, meeting, organizerName, checkInLink);
+    public String meetingInvitationPlain(Guest guest, Meeting meeting, String organizerName, String checkInLink, String rsvpLink) {
+        return templates.meetingInvitationPlain(guest, meeting, organizerName, checkInLink, rsvpLink);
     }
 
     /** Backward-compatible OTP email for sign-in flows. */
@@ -143,21 +143,32 @@ public class NotificationService {
     }
 
     private Map<String, Object> sendText(String to, String body) {
-        String endpoint = messagesEndpoint();
+        // Fallback for simple OTP messages if needed (though Meeting invites use templates).
+        // Since WhatsAppCloudService handles template sends, we'll keep a simple text send here if needed by OTP,
+        // but we should just use the default number.
+        if (whatsappToken.isBlank() || phoneNumberId.isBlank()) return Map.of("sent", false);
+        String endpoint = whatsappUrl.endsWith("/") ? whatsappUrl + phoneNumberId + "/messages" : whatsappUrl + "/" + phoneNumberId + "/messages";
         Map<String, Object> payload = Map.of(
             "messaging_product", "whatsapp",
             "to", to,
             "type", "text",
             "text", Map.of("preview_url", true, "body", body));
-        RestClient.create(endpoint).post()
-            .header("Authorization", "Bearer " + whatsappToken)
-            .header("Content-Type", "application/json")
-            .body(payload).retrieve().toBodilessEntity();
-        return Map.of("sent", true, "mode", "text", "to", to);
+        try {
+            RestClient.create(endpoint).post()
+                .header("Authorization", "Bearer " + whatsappToken)
+                .header("Content-Type", "application/json")
+                .body(payload).retrieve().toBodilessEntity();
+            return Map.of("sent", true, "mode", "text", "to", to);
+        } catch (Exception e) {
+            System.err.println("WhatsApp delivery failed: " + e.getMessage());
+            return Map.of("sent", false, "reason", e.getMessage(), "to", to);
+        }
     }
 
     private Map<String, Object> sendTemplate(String to, String body) {
-        String endpoint = messagesEndpoint();
+        // Used by backward-compatible whatsapp() call.
+        if (whatsappToken.isBlank() || phoneNumberId.isBlank()) return Map.of("sent", false);
+        String endpoint = whatsappUrl.endsWith("/") ? whatsappUrl + phoneNumberId + "/messages" : whatsappUrl + "/" + phoneNumberId + "/messages";
         Map<String, Object> template = new LinkedHashMap<>();
         template.put("name", templateName);
         template.put("language", Map.of("code", templateLanguage));
@@ -175,18 +186,15 @@ public class NotificationService {
             "type", "template",
             "template", template);
 
-        var response = RestClient.create(endpoint).post()
-            .header("Authorization", "Bearer " + whatsappToken)
-            .header("Content-Type", "application/json")
-            .body(payload).retrieve().body(Map.class);
-
-        return Map.of("sent", true, "mode", "template", "template", templateName, "to", to, "response", response == null ? Map.of() : response);
-    }
-
-    private String messagesEndpoint() {
-        return whatsappUrl.endsWith("/")
-            ? whatsappUrl + phoneNumberId + "/messages"
-            : whatsappUrl + "/" + phoneNumberId + "/messages";
+        try {
+            var response = RestClient.create(endpoint).post()
+                .header("Authorization", "Bearer " + whatsappToken)
+                .header("Content-Type", "application/json")
+                .body(payload).retrieve().body(Map.class);
+            return Map.of("sent", true, "mode", "template", "template", templateName, "to", to, "response", response == null ? Map.of() : response);
+        } catch (Exception e) {
+            return Map.of("sent", false, "reason", e.getMessage(), "to", to);
+        }
     }
 
     /** Tanzania-friendly: 0757219157 → 255757219157 */

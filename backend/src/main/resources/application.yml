@@ -31,12 +31,19 @@ bmc:
   default-email-sender: ${SMTP_FROM:theagaba.dev@gmail.com}
   whatsapp-enabled: ${WHATSAPP_ENABLED:false}
   whatsapp-use-templates: ${WHATSAPP_USE_TEMPLATES:true}
-  whatsapp-template-name: ${WHATSAPP_TEMPLATE_NAME:hello_world}
+  whatsapp-template-name: ${WHATSAPP_TEMPLATE_NAME:meeting_invitation}
   whatsapp-template-language: ${WHATSAPP_TEMPLATE_LANGUAGE:en_US}
+  whatsapp-api-url: ${WHATSAPP_API_URL:https://graph.facebook.com/v21.0}
+  whatsapp-access-token: ${WHATSAPP_ACCESS_TOKEN:}
+  whatsapp-default-phone-id: ${WHATSAPP_DEFAULT_PHONE_NUMBER_ID:}
+  whatsapp-default-waba-id: ${WHATSAPP_DEFAULT_WABA_ID:}
+  whatsapp-app-secret: ${WHATSAPP_APP_SECRET:}
+  whatsapp-webhook-verify-token: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:}
   otp-expiry-minutes: ${OTP_EXPIRY_MINUTES:10}
   qr-rotation-seconds: ${QR_ROTATION_SECONDS:45}
   session-days: ${SESSION_DAYS:7}
   pending-registration-hours: ${PENDING_REGISTRATION_HOURS:24}
+  cloudinary-url: ${CLOUDINARY_URL:}
 logging:
   level:
     root: INFO

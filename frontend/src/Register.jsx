@@ -8,7 +8,7 @@ import { useToast } from './toast.jsx';
 
 const RESEND_COOLDOWN = 60;
 
-function ResendCooldown({ seconds, label, onResend, resending, lang, showSpamHint }) {
+function ResendCooldown({ seconds, label, onResend, resending, lang }) {
   const cooling = seconds > 0;
   const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
   const ss = String(seconds % 60).padStart(2, '0');
@@ -22,16 +22,6 @@ function ResendCooldown({ seconds, label, onResend, resending, lang, showSpamHin
             {lang === 'en'
               ? <>New OTP cannot be requested for <strong>{mm}:{ss}</strong></>
               : <>OTP mpya haiwezi kuombwa kwa <strong>{mm}:{ss}</strong></>}
-          </span>
-        </div>
-      )}
-      {cooling && showSpamHint && (
-        <div className="otp-spam-hint">
-          <Mail size={13} style={{ flexShrink: 0, color: '#b45309' }} />
-          <span>
-            {lang === 'en'
-              ? <>Can't find the email? Check your <strong>Spam / Junk</strong> folder.</>
-              : <>Hupati barua pepe? Angalia folda ya <strong>Spam / Barua taka</strong>.</>}
           </span>
         </div>
       )}
@@ -108,7 +98,7 @@ export default function Register({ lang, setLang }) {
         setStage(cfg.whatsapp_enabled ? 'verify-both' : 'verify-email');
         startCooldown('email');
         if (cfg.whatsapp_enabled) startCooldown('phone');
-        toast(lang === 'en' ? 'Account created. Verify your OTP to activate it.' : 'Akaunti imeundwa. Thibitisha OTP yako.', 'info');
+        toast(lang === 'en' ? 'Account created. We sent an OTP to your email. Please check your spam or junk folder if you cannot find it.' : 'Akaunti imeundwa. Tumetuma OTP kwenye barua pepe yako. Tafadhali angalia kwenye spam/junk ikiwa huioni.', 'info');
       } else {
         await api('/api/auth/verify', { method: 'POST', body: JSON.stringify({ email: form.email, channel: 'email', code: codes.email }) });
         if (whatsapp) await api('/api/auth/verify', { method: 'POST', body: JSON.stringify({ email: form.email, channel: 'phone', code: codes.whatsapp }) });
@@ -131,12 +121,8 @@ export default function Register({ lang, setLang }) {
       startCooldown(channel);
       toast(
         lang === 'en'
-          ? channel === 'email'
-            ? 'OTP resent! Check your inbox — and your Spam / Junk folder if you don't see it.'
-            : 'OTP resent via WhatsApp.'
-          : channel === 'email'
-            ? 'OTP imetumwa tena! Angalia kikasha chako — na folda ya Spam ikiwa hupioni.'
-            : 'OTP imetumwa tena kwa WhatsApp.',
+          ? `OTP resent via ${channel === 'email' ? 'email. Please check your spam or junk folder if you cannot find it' : 'WhatsApp'}.`
+          : `OTP imetumwa tena kwa ${channel === 'email' ? 'barua pepe. Tafadhali angalia kwenye spam/junk ikiwa huioni' : 'WhatsApp'}.`,
         'success'
       );
     } catch (err) {
@@ -204,7 +190,6 @@ export default function Register({ lang, setLang }) {
                         onResend={() => resend('email')}
                         resending={resending.email}
                         lang={lang}
-                        showSpamHint
                       />
                     </label>
                     {whatsapp && (

@@ -34,7 +34,7 @@ public class EmailTemplateService {
         );
     }
 
-    public String meetingInvitation(Guest guest, Meeting meeting, String organizerName, String checkInLink) {
+    public String meetingInvitation(Guest guest, Meeting meeting, String organizerName, String checkInLink, String rsvpLink) {
         return layout(
             "#1B5E20",
             "Meeting invitation",
@@ -53,11 +53,21 @@ public class EmailTemplateService {
               Check-in opens <strong>30 minutes before</strong> the meeting and closes
               <strong>30 minutes after</strong> it starts. Please keep your personal link private.
             </p>
+            <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;">
+              <tr>
+                <td style="padding:16px 18px;background:#fff8e1;border-left:4px solid #F9A825;border-radius:8px;">
+                  <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:1px;">Unable to attend?</p>
+                  <p style="margin:0 0 12px;font-size:14px;color:#78350f;line-height:1.6;">If you are unable to attend this meeting, please submit a formal response using the link below. You may also attach a supporting document (e.g. leave form, medical certificate).</p>
+                  <a href="%s" style="display:inline-block;padding:10px 22px;background:#F9A825;color:#1a1a1a;text-decoration:none;font-size:14px;font-weight:700;border-radius:8px;">Submit non-attendance response</a>
+                </td>
+              </tr>
+            </table>
             """.formatted(
                 escape(guest.name),
                 escape(organizerName),
                 meetingDetails(meeting),
-                ctaButton("Open check-in link", checkInLink)
+                ctaButton("Open check-in link", checkInLink),
+                escapeAttr(rsvpLink)
             )
         );
     }
@@ -104,7 +114,7 @@ public class EmailTemplateService {
         );
     }
 
-    public String meetingInvitationPlain(Guest guest, Meeting meeting, String organizerName, String checkInLink) {
+    public String meetingInvitationPlain(Guest guest, Meeting meeting, String organizerName, String checkInLink, String rsvpLink) {
         return """
             You're Invited to a Meeting
 
@@ -121,6 +131,10 @@ public class EmailTemplateService {
             Check-in opens 30 minutes before the meeting and closes 30 minutes after it starts.
             Please keep this link private.
 
+            Unable to attend?
+            If you cannot attend, please submit your response here: %s
+            You may attach a supporting document (e.g. leave form, medical certificate).
+
             Organizer: %s
             Reference: %s
             Bukoba Municipal Council
@@ -133,6 +147,7 @@ public class EmailTemplateService {
             Objects.toString(meeting.location, "To be confirmed"),
             Objects.toString(meeting.purpose, ""),
             checkInLink,
+            rsvpLink,
             organizerName,
             meeting.reference
         ).trim();

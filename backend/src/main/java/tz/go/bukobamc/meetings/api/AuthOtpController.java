@@ -79,14 +79,6 @@ public class AuthOtpController {
         result.put("status", "otp_required");
         result.put("whatsapp_enabled", whatsappEnabled);
         result.put("message", whatsappEnabled ? "OTP sent to email and WhatsApp" : "OTP sent to email");
-        if ("development".equalsIgnoreCase(appEnv)) {
-            System.out.println("====== DEV OTP (Login) ======");
-            System.out.println("Email OTP: " + emailCode);
-            if (whatsappEnabled && user.phone != null && !user.phone.isBlank()) {
-                System.out.println("WhatsApp OTP: " + phoneCode);
-            }
-            System.out.println("=============================");
-        }
         return result;
     }
 

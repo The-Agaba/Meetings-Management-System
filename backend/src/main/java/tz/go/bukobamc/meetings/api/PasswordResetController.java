@@ -77,7 +77,6 @@ public class PasswordResetController {
                 "Enter this code to reset your BMC Meetings password."
             );
             audit.record(user, "PASSWORD_RESET_REQUEST", "Reset code sent", clientIp(request));
-            if ("development".equalsIgnoreCase(appEnv)) System.out.println("====== DEV OTP (Password Reset) ======\nEmail OTP: " + code + "\n======================================");
         });
         return response;
     }
