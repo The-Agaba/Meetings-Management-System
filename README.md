@@ -7,7 +7,7 @@
 ![React](https://img.shields.io/badge/UI-React%20%2B%20Vite-61dafb?logo=react&logoColor=111)
 ![Languages](https://img.shields.io/badge/UI-English%20%7C%20Kiswahili-087f45)
 
-The system gives council staff one place to create meetings, manage guests, send email and WhatsApp invitations, collect RSVP responses, run QR attendance check-in, and download records. Participants use a secure link and do not need an account.
+The system gives council staff one place to create physical or virtual meetings, manage guests, send email and WhatsApp invitations, collect RSVP responses, run QR attendance check-in for physical meetings, and download records. Participants use a secure link and do not need an account.
 
 ## What it does
 
@@ -24,10 +24,10 @@ flowchart LR
 | Area | Available now |
 |---|---|
 | Staff access | Registration, email OTP verification, password login, password reset, roles, sessions |
-| Meetings | Draft and published meetings, ownership rules, editing, rescheduling, cancellation |
+| Meetings | Draft and published physical or virtual meetings, ownership rules, editing, rescheduling, cancellation |
 | Guests | Manual entry, CSV/XLSX import, invitation status, RSVP tracking |
 | Messaging | SMTP email and optional Meta WhatsApp Cloud API with templates |
-| Attendance | Rotating meeting QR code, personal participant links, duplicate check-in protection |
+| Attendance | Rotating QR code and personal participant links for physical meetings; virtual meetings distribute the online meeting link |
 | Administration | Staff management, attendance overview, audit log, integration status, system log download |
 | Records | Meeting CSV/PDF reports, staff/attendance/audit CSV exports, full application log download |
 | Experience | Responsive PWA shell, English and Kiswahili UI, offline status banner |
@@ -89,10 +89,10 @@ The packaged backend JAR is written to `backend/target` and the frontend build i
 
 1. Sign in as the seeded administrator.
 2. Open **Administration** and confirm staff accounts and integration status.
-3. Create a meeting and add guests manually or with the XLSX template.
+3. Create a physical or virtual meeting and add guests manually or with the XLSX template. Virtual meetings require an online meeting link and do not use a venue or physical attendance QR.
 4. Publish the meeting and send invitations.
 5. Monitor RSVP responses from the meeting detail view.
-6. Display the rotating attendance QR code during the meeting.
+6. For physical meetings, display the rotating attendance QR code during the meeting. For virtual meetings, participants use the distributed online meeting link.
 7. Download the meeting report, attendance CSV, audit CSV, or full system log when needed.
 
 Participants open `/rsvp.html?token=...` for RSVP and `/attendance.html?token=...` for QR attendance. No participant account is required.

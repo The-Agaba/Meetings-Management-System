@@ -7,7 +7,7 @@ const en = {
   attendanceQr: 'Session Attendance QR', remaining: 'remaining — display on screen for participants', refreshingQr: 'Refreshing QR...', refreshQr: 'Refresh QR',
   qrHint: 'Participants scan this with their Personal Sign-In Link page to record attendance.', generateQr: 'Generate Session QR Code',
   downloadTemplate: 'Download XLSX template', importFile: 'Import CSV / XLSX',
-  startFuture: 'Meeting start must be in the future.', endAfterStart: 'Meeting end must be after the start time.',
+  startFuture: 'Meeting start must be in the future.', endAfterStart: 'Meeting end must be after the start time.', meetingFormat: 'Meeting format', physicalMeeting: 'Physical meeting', virtualMeeting: 'Virtual meeting', virtualLink: 'Virtual meeting link', virtualLinkRequired: 'Enter the online meeting link for a virtual meeting.', locationOptional: 'Location (optional for virtual meetings)',
   meetingUpdated: 'Meeting updated successfully.', meetingCreated: 'Meeting created successfully.',
   scheduleChange: 'SCHEDULE CHANGE', notifyReschedule: 'Notify guests of reschedule', scheduleNotice: 'Send an updated schedule notice to all guests by email and WhatsApp.',
   noteOptional: 'Note to guests (optional)', skip: 'Skip for now', sendNotice: 'Send reschedule notice',
@@ -23,11 +23,11 @@ const en = {
   profile: 'PROFILE', security: 'SECURITY', whatsappMessaging: 'WHATSAPP MESSAGING', updateProfile: 'Update the information used for council notifications.',
   verified: 'Verified', role: 'Role', cancelEmail: 'Cancel email change', changePassword: 'Change password', currentPassword: 'Current password', newPassword: 'New password', updatePassword: 'Update password',
   checkinError: 'CHECK-IN ERROR', unableLoad: 'Unable to load', checkin: 'ATTENDANCE CHECK-IN', welcome: 'Welcome', attendanceRecorded: 'Attendance already recorded.', checkedInto: 'You have successfully checked into this meeting.',
-  checkinUnavailable: 'Check-in is not available', instructions: 'Instructions', scannerInstruction: 'Use your camera to scan the session attendance QR code displayed by the meeting organiser.', openScanner: 'Open camera scanner', stopScanner: 'Stop scanner',
+  checkinUnavailable: 'Check-in is not available', instructions: 'Instructions', scannerInstruction: 'Use your camera to scan the session attendance QR code displayed by the meeting organiser.', openScanner: 'Open camera scanner', stopScanner: 'Stop scanner', joinVirtual: 'Join virtual meeting', virtualAttendanceNote: 'This is an online meeting. Join using the link below; physical QR attendance is not used.',
   offline: 'You are offline. Cached pages are available; sign-in and live updates need a connection.', dismiss: 'Dismiss',
   connectWhatsApp: 'Connect your WhatsApp Business number to send meeting invitations from your own number.', connect: 'Connect WhatsApp', useDefault: 'Use default number',
   useMyWhatsApp: 'Use my WhatsApp', whatsappComingTitle: 'Personal WhatsApp Business number', whatsappComingMessage: 'This feature will be available in a future update. For now, meeting invitations use the system default WhatsApp Business number.', close: 'Close'
-  ,invitationChannelTitle: 'Send invitations', invitationChannelPrompt: 'Choose how you want to send invitations to the guests.', sendViaWhatsApp: 'Send via WhatsApp', sendViaEmail: 'Send via email', confirmSend: 'Send invitations', monitorMessageStatus: 'Monitor message status'
+  ,invitationChannelTitle: 'Send invitations', invitationChannelPrompt: 'Choose how you want to send invitations to the guests.', sendViaWhatsApp: 'Send via WhatsApp', sendViaEmail: 'Send via email', sendViaBoth: 'Send via email and WhatsApp', confirmSend: 'Send invitations', monitorMessageStatus: 'Monitor message status'
 };
 
 const sw = {
@@ -39,7 +39,7 @@ const sw = {
   attendanceQr: 'QR ya Mahudhurio ya Kikao', remaining: 'imebaki — ionyeshe kwenye skrini kwa washiriki', refreshingQr: 'Inasasisha QR...', refreshQr: 'Sasisha QR',
   qrHint: 'Washiriki wachanganue hii kwa ukurasa wao wa kuingia ili kurekodi mahudhurio.', generateQr: 'Tengeneza QR ya Mahudhurio',
   downloadTemplate: 'Pakua kiolezo cha XLSX', importFile: 'Ingiza CSV / XLSX',
-  startFuture: 'Muda wa kuanza mkutano lazima uwe wa baadaye.', endAfterStart: 'Muda wa kumaliza lazima uwe baada ya muda wa kuanza.',
+  startFuture: 'Muda wa kuanza mkutano lazima uwe wa baadaye.', endAfterStart: 'Muda wa kumaliza lazima uwe baada ya muda wa kuanza.', meetingFormat: 'Aina ya mkutano', physicalMeeting: 'Mkutano wa ana kwa ana', virtualMeeting: 'Mkutano wa mtandaoni', virtualLink: 'Kiungo cha mkutano wa mtandaoni', virtualLinkRequired: 'Weka kiungo cha mkutano wa mtandaoni.', locationOptional: 'Mahali (si lazima kwa mkutano wa mtandaoni)',
   meetingUpdated: 'Mkutano umesasishwa kikamilifu.', meetingCreated: 'Mkutano umeundwa kikamilifu.',
   scheduleChange: 'MABADILIKO YA RATIBA', notifyReschedule: 'Wajulishe wageni kuhusu mabadiliko ya ratiba', scheduleNotice: 'Tuma taarifa ya ratiba mpya kwa wageni wote kwa barua pepe na WhatsApp.',
   noteOptional: 'Ujumbe kwa wageni (si lazima)', skip: 'Ruka kwa sasa', sendNotice: 'Tuma taarifa ya mabadiliko',
@@ -55,11 +55,11 @@ const sw = {
   profile: 'WASIFU', security: 'USALAMA', whatsappMessaging: 'UJUMBE WA WHATSAPP', updateProfile: 'Sasisha taarifa zinazotumika kwa taarifa za halmashauri.',
   verified: 'Imethibitishwa', role: 'Wadhifa', cancelEmail: 'Ghairi mabadiliko ya barua pepe', changePassword: 'Badilisha nenosiri', currentPassword: 'Nenosiri la sasa', newPassword: 'Nenosiri jipya', updatePassword: 'Sasisha nenosiri',
   checkinError: 'KOSA LA KUINGIA', unableLoad: 'Imeshindikana kupakia', checkin: 'KUINGIA KUTHIBITISHA MAHUDHURIO', welcome: 'Karibu', attendanceRecorded: 'Mahudhurio tayari yamehifadhiwa.', checkedInto: 'Umefanikiwa kuingia kwenye mkutano huu.',
-  checkinUnavailable: 'Kuingia hakupatikani', instructions: 'Maelekezo', scannerInstruction: 'Tumia kamera yako kuchanganua QR ya mahudhurio inayoonyeshwa na mratibu wa mkutano.', openScanner: 'Fungua kichanganuzi cha kamera', stopScanner: 'Simamisha kichanganuzi',
+  checkinUnavailable: 'Kuingia hakupatikani', instructions: 'Maelekezo', scannerInstruction: 'Tumia kamera yako kuchanganua QR ya mahudhurio inayoonyeshwa na mratibu wa mkutano.', openScanner: 'Fungua kichanganuzi cha kamera', stopScanner: 'Simamisha kichanganuzi', joinVirtual: 'Jiunge na mkutano wa mtandaoni', virtualAttendanceNote: 'Huu ni mkutano wa mtandaoni. Tumia kiungo hapa chini; QR ya mahudhurio ya ana kwa ana haitatumika.',
   offline: 'Huna intaneti. Kurasa zilizohifadhiwa zinapatikana; kuingia na masasisho ya moja kwa moja kunahitaji muunganisho.', dismiss: 'Funga',
   connectWhatsApp: 'Unganisha namba yako ya WhatsApp Business ili kutuma mialiko ya mikutano kutoka kwenye namba yako.', connect: 'Unganisha WhatsApp', useDefault: 'Tumia namba ya mfumo',
   useMyWhatsApp: 'Tumia WhatsApp yangu', whatsappComingTitle: 'Namba binafsi ya WhatsApp Business', whatsappComingMessage: 'Kipengele hiki kitapatikana katika sasisho lijalo. Kwa sasa, mialiko ya mikutano inatumia namba ya WhatsApp Business ya mfumo.', close: 'Funga'
-  ,invitationChannelTitle: 'Tuma mialiko', invitationChannelPrompt: 'Chagua jinsi unavyotaka kutuma mialiko kwa wageni.', sendViaWhatsApp: 'Tuma kwa WhatsApp', sendViaEmail: 'Tuma kwa barua pepe', confirmSend: 'Tuma mialiko', monitorMessageStatus: 'Fuatilia hali ya ujumbe'
+  ,invitationChannelTitle: 'Tuma mialiko', invitationChannelPrompt: 'Chagua jinsi unavyotaka kutuma mialiko kwa wageni.', sendViaWhatsApp: 'Tuma kwa WhatsApp', sendViaEmail: 'Tuma kwa barua pepe', sendViaBoth: 'Tuma kwa barua pepe na WhatsApp', confirmSend: 'Tuma mialiko', monitorMessageStatus: 'Fuatilia hali ya ujumbe'
 };
 
 export const uiText = lang => lang === 'sw' ? sw : en;

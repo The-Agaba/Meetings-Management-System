@@ -13,9 +13,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.time.format.DateTimeFormatter;
 
 @Service
 public class InvitationAsyncService {
+
+    private static final DateTimeFormatter MEETING_DATE = DateTimeFormatter.ofPattern("EEEE, dd MMMM yyyy");
+    private static final DateTimeFormatter MEETING_TIME = DateTimeFormatter.ofPattern("HH:mm");
 
     private final WhatsAppCloudService whatsappService;
     private final InvitationRepository invitationRepo;
@@ -23,18 +27,21 @@ public class InvitationAsyncService {
     private final String templateName;
     private final String templateLanguage;
     private final int templateParameterCount;
+    private final String templateNameMeeting;
 
     public InvitationAsyncService(
             WhatsAppCloudService whatsappService,
             InvitationRepository invitationRepo,
             @Value("${bmc.whatsapp-default-phone-id:}") String defaultPhoneNumberId,
             @Value("${bmc.whatsapp-template-name:hello_world}") String templateName,
+            @Value("${bmc.whatsapp-template-name-meeting:bmc_meetings}") String templateNameMeeting,
             @Value("${bmc.whatsapp-template-language:en_US}") String templateLanguage,
             @Value("${bmc.whatsapp-template-parameter-count:0}") int templateParameterCount) {
         this.whatsappService = whatsappService;
         this.invitationRepo = invitationRepo;
         this.defaultPhoneNumberId = defaultPhoneNumberId;
         this.templateName = templateName;
+        this.templateNameMeeting = templateNameMeeting;
         this.templateLanguage = templateLanguage;
         this.templateParameterCount = templateParameterCount;
     }
@@ -67,24 +74,34 @@ public class InvitationAsyncService {
                 continue;
             }
 
-            String rsvpLink = baseUrl + "/rsvp.html?token=" + rawToken; 
+            String checkInLink = baseUrl + "/attendance.html?token=" + rawToken;
+            boolean virtualMeeting = "virtual".equalsIgnoreCase(meeting.meetingType);
+            String meetingLink = virtualMeeting ? Objects.toString(meeting.virtualLink, "") : checkInLink;
+
+            String date = meeting.startAt.format(MEETING_DATE);
+            String time = meeting.startAt.format(MEETING_TIME);
             
-                List<String> availableParams = List.of(
-                    meeting.title,
-                    meeting.reference,
-                    meeting.startAt.toLocalDate().toString(),
-                    Objects.toString(meeting.location, "Virtual"),
-                    rsvpLink
+            List<String> bodyParams = List.of(
+                inv.guest.name != null ? inv.guest.name : "Guest",
+                sender.name != null ? sender.name : "Admin",
+                date,
+                time,
+                Objects.toString(meeting.location, "To be confirmed"),
+                Objects.toString(meeting.purpose, "Meeting"),
+                Objects.toString(meeting.reference, ""),
+                meetingLink
             );
-                int parameterCount = Math.max(0, Math.min(templateParameterCount, availableParams.size()));
-                List<String> params = availableParams.subList(0, parameterCount);
+            
+            // The virtual template uses the same dynamic URL component for the online meeting link.
+            List<String> buttonUrlParams = List.of(virtualMeeting ? meetingLink : rawToken);
 
             Map<String, Object> result = whatsappService.sendTemplate(
                     inv.guest.phone,
                     phoneNumberId,
-                    templateName,
+                    templateNameMeeting,
                     templateLanguage,
-                    params
+                    bodyParams,
+                    buttonUrlParams
             );
 
             boolean sent = (Boolean) result.getOrDefault("sent", false);
@@ -101,7 +118,7 @@ public class InvitationAsyncService {
                 }
             } else {
                 inv.whatsappStatus = "FAILED";
-                inv.whatsappError = String.valueOf(result.get("reason"));
+                inv.whatsappError = failureMessage(result);
                 invitationRepo.save(inv);
             }
 
@@ -113,6 +130,12 @@ public class InvitationAsyncService {
                 break;
             }
         }
+    }
+
+    private String failureMessage(Map<String, Object> result) {
+        String detail = Objects.toString(result.get("detail"), "").trim();
+        String reason = Objects.toString(result.get("reason"), "WhatsApp delivery failed").trim();
+        return detail.isBlank() ? reason : reason + ": " + detail;
     }
 
     private void markFailed(List<Map<String, Object>> invitationData, String reason) {

@@ -40,6 +40,16 @@ function csvValue(value) {
   return `"${String(value ?? '').replace(/"/g, '""')}"`;
 }
 
+function meetingDate(value, lang = 'en') {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat(lang === 'sw' ? 'sw-TZ' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(value));
+}
+
+function meetingTime(value, lang = 'en') {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat(lang === 'sw' ? 'sw-TZ' : 'en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value));
+}
+
 function downloadCsv(rows, columns, filename) {
   const csv = '\uFEFF' + [columns.map(column => csvValue(column.label)).join(','), ...rows.map(row => columns.map(column => csvValue(row[column.key])).join(','))].join('\r\n');
   downloadText(csv, filename, 'text/csv;charset=utf-8');
@@ -249,6 +259,7 @@ function MeetingModal({ lang, t, meeting, onClose, onSaved }) {
     start_at: toLocalInput(meeting?.start_at),
     end_at: toLocalInput(meeting?.end_at),
     location: meeting?.location || '',
+    virtual_link: meeting?.virtual_link || '',
     department: meeting?.department || 'Bukoba Municipal Council',
     meeting_type: meeting?.meeting_type || 'internal',
     priority: meeting?.priority || 'normal',
@@ -265,6 +276,7 @@ function MeetingModal({ lang, t, meeting, onClose, onSaved }) {
     const end = new Date(form.end_at);
     if (!isEdit && start <= new Date()) { toast(text.startFuture, 'error'); return; }
     if (end <= start) { toast(text.endAfterStart, 'error'); return; }
+    if (form.meeting_type === 'virtual' && !form.virtual_link.trim()) { toast(text.virtualLinkRequired, 'error'); return; }
     setLoading(true);
     try {
       const payload = { ...form, start_at: start.toISOString(), end_at: end.toISOString() };
@@ -301,7 +313,9 @@ function MeetingModal({ lang, t, meeting, onClose, onSaved }) {
             <label>{t.department}<input value={form.department} onChange={e => update('department', e.target.value)} required /></label>
             <label>{t.start}<input type="datetime-local" min={isEdit ? undefined : minDateTime} value={form.start_at} onChange={e => update('start_at', e.target.value)} required /></label>
             <label>{t.end}<input type="datetime-local" min={form.start_at || minDateTime} value={form.end_at} onChange={e => update('end_at', e.target.value)} required /></label>
-            <label className="span-2">{t.location}<input value={form.location} onChange={e => update('location', e.target.value)} /></label>
+            <label className="span-2">{form.meeting_type === 'virtual' ? text.locationOptional : t.location}<input value={form.location} onChange={e => update('location', e.target.value)} disabled={form.meeting_type === 'virtual'} placeholder={form.meeting_type === 'virtual' ? 'Not required for virtual meetings' : ''} /></label>
+            <label>{text.meetingFormat}<select value={form.meeting_type} onChange={e => update('meeting_type', e.target.value)}><option value="internal">{text.physicalMeeting}</option><option value="virtual">{text.virtualMeeting}</option></select></label>
+            {form.meeting_type === 'virtual' && <label className="span-2">{text.virtualLink}<input type="url" value={form.virtual_link} onChange={e => update('virtual_link', e.target.value)} placeholder="https://meet.example.com/..." required /></label>}
             <label>{t.status}<select value={form.status} onChange={e => update('status', e.target.value)}><option value="draft">Draft</option><option value="published">Published</option></select></label>
             <label>Priority<select value={form.priority} onChange={e => update('priority', e.target.value)}><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></label>
             <label className="span-2">{t.purpose}<textarea value={form.purpose} onChange={e => update('purpose', e.target.value)} /></label>
@@ -489,6 +503,7 @@ function DetailModal({ meetingId, t, lang, onClose, onOpenDeliveryLogs }) {
 
   const readOnly = new Date(m.end_at) <= new Date();
   const isCancelled = m.status === 'cancelled';
+  const isVirtual = m.meeting_type === 'virtual';
   const canManage = !!m.can_manage && !readOnly && !isCancelled;
 
   if (editing) {
@@ -670,7 +685,7 @@ function DetailModal({ meetingId, t, lang, onClose, onOpenDeliveryLogs }) {
 
         <div className="detail-meta">
           <span><CalendarDays size={16} />{new Date(m.start_at).toLocaleString()} – {new Date(m.end_at).toLocaleString()}</span>
-          <span><MapPin size={16} />{m.location || text.councilVenue}</span>
+          <span><MapPin size={16} />{isVirtual ? text.virtualMeeting : (m.location || text.councilVenue)}</span>
           <span className={`badge ${isCancelled ? 'red' : m.status === 'published' ? 'green' : 'gold'}`}>{m.status}</span>
         </div>
 
@@ -757,6 +772,10 @@ function DetailModal({ meetingId, t, lang, onClose, onOpenDeliveryLogs }) {
                   <input type="radio" name="invitation-channel" value="email" checked={sendChannel === 'email'} onChange={e => setSendChannel(e.target.value)} />
                   <Send size={18} /> {text.sendViaEmail}
                 </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer' }}>
+                  <input type="radio" name="invitation-channel" value="both" checked={sendChannel === 'both'} onChange={e => setSendChannel(e.target.value)} />
+                  <><Send size={18} /><MessageCircle size={18} /></> {text.sendViaBoth}
+                </label>
               </div>
               <div className="modal-actions">
                 <button className="secondary" onClick={() => setShowSendModal(false)}>{text.cancel}</button>
@@ -840,7 +859,8 @@ function DetailModal({ meetingId, t, lang, onClose, onOpenDeliveryLogs }) {
         )}
 
         {/* QR Code — only for upcoming meetings */}
-        {canManage && <QrSection meetingId={meetingId} t={t} lang={lang} />}
+        {canManage && !isVirtual && <QrSection meetingId={meetingId} t={t} lang={lang} />}
+        {isVirtual && m.virtual_link && <div className="virtual-meeting-panel"><strong>{text.virtualMeeting}</strong><p>Participants will receive the online meeting link by email and WhatsApp.</p><a className="primary" href={m.virtual_link} target="_blank" rel="noreferrer">{text.joinVirtual}</a></div>}
       </section>
     </div>
   );
@@ -1686,9 +1706,15 @@ function Rsvp({ lang, setLang }) {
           <p className="rsvp-name">{data.guest.name}</p>
           <div className="rsvp-event">
             <h2>{data.meeting.title}</h2>
-            <p>{data.meeting.purpose}</p>
-            <div><CalendarDays size={17} />{new Date(data.meeting.start_at).toLocaleString()}</div>
-            <div><MapPin size={17} />{data.meeting.location}</div>
+            {data.meeting.purpose && <p className="meeting-purpose">{data.meeting.purpose}</p>}
+            <div><CalendarDays size={17} /><span><strong>Date</strong>{meetingDate(data.meeting.start_at, lang)}</span></div>
+            <div><Clock3 size={17} /><span><strong>Time</strong>{meetingTime(data.meeting.start_at, lang)} – {meetingTime(data.meeting.end_at, lang)}</span></div>
+            <div><MapPin size={17} /><span><strong>Location</strong>{data.meeting.location || 'To be confirmed'}</span></div>
+            <div><span className="meeting-detail-label">Department</span>{data.meeting.department || 'Bukoba Municipal Council'}</div>
+            <div><span className="meeting-detail-label">Meeting type</span>{data.meeting.meeting_type || 'internal'}</div>
+            <div><span className="meeting-detail-label">Priority</span>{data.meeting.priority || 'normal'}</div>
+            {data.meeting.map_link && <a className="meeting-link" href={data.meeting.map_link} target="_blank" rel="noreferrer">Open location map</a>}
+            {data.meeting.virtual_link && <a className="meeting-link" href={data.meeting.virtual_link} target="_blank" rel="noreferrer">Open virtual meeting link</a>}
           </div>
           <div className="choice-grid">
             {[['confirmed', t.confirm, 'green'], ['tentative', t.tentative, 'gold'], ['declined', t.decline, 'red']].map(([v, l, c]) => (
@@ -1775,7 +1801,6 @@ function Attendance({ lang, setLang }) {
 
   const submit = async payload => {
     try {
-      setScanStatus('success');
       const r = await fetch('/api/attendance/sign-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1788,6 +1813,7 @@ function Attendance({ lang, setLang }) {
       setScanning(false);
       setData({ ...data, attended: true, check_in_open: false });
     } catch (e) {
+      stopScanner();
       setError(e.message);
       setScanStatus('idle');
     }
@@ -1795,46 +1821,52 @@ function Attendance({ lang, setLang }) {
 
   const start = async () => {
     setError('');
-    setScanning(true);
-    setScanStatus('scanning');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      
-      const scan = () => {
-        if (!streamRef.current || !videoRef.current) return;
-        
-        if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-          canvas.width = videoRef.current.videoWidth;
-          canvas.height = videoRef.current.videoHeight;
-          ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: 'dontInvert',
-          });
-          
-          if (code && code.data) {
-            return submit(code.data);
-          }
-        }
-        requestAnimationFrame(scan);
-      };
-      
-      // Start the scan loop
-      requestAnimationFrame(scan);
+      setScanStatus('scanning');
+      setScanning(true);
     } catch (e) {
       setScanning(false);
       setScanStatus('idle');
       setError('Camera access is required to scan the meeting attendance QR code. Please allow camera permissions.');
     }
   };
+
+  useEffect(() => {
+    if (!scanning || !streamRef.current || !videoRef.current) return undefined;
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    let frame;
+    let stopped = false;
+    video.srcObject = stream;
+
+    const scan = () => {
+      if (stopped) return;
+      if (video.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA && video.videoWidth > 0) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+        if (code?.data) {
+          stopped = true;
+          stopScanner();
+          submit(code.data);
+          return;
+        }
+      }
+      frame = requestAnimationFrame(scan);
+    };
+
+    video.play().then(() => { frame = requestAnimationFrame(scan); }).catch(() => {
+      setError('The camera preview could not start. Please try opening the scanner again.');
+      stopScanner();
+    });
+    return () => { stopped = true; if (frame) cancelAnimationFrame(frame); };
+  }, [scanning]);
 
   const stopScanner = () => {
     streamRef.current?.getTracks().forEach(t => t.stop());
@@ -1880,9 +1912,16 @@ function Attendance({ lang, setLang }) {
           <p className="rsvp-name">{text.welcome}, <strong>{data.participant}</strong></p>
           
           <div className="rsvp-event">
-            <p>{data.meeting.purpose}</p>
-            <div><CalendarDays size={17} />{new Date(data.meeting.start_at).toLocaleString()}</div>
-            <div><MapPin size={17} />{data.meeting.location}</div>
+            <div className="meeting-reference">{data.meeting.reference}</div>
+            <p className="meeting-purpose">{data.meeting.purpose || 'Meeting attendance'}</p>
+            <div><CalendarDays size={17} /><span><strong>Date</strong>{meetingDate(data.meeting.start_at, lang)}</span></div>
+            <div><Clock3 size={17} /><span><strong>Time</strong>{meetingTime(data.meeting.start_at, lang)} – {meetingTime(data.meeting.end_at, lang)}</span></div>
+            <div><MapPin size={17} /><span><strong>Location</strong>{data.meeting.location || 'To be confirmed'}</span></div>
+            <div><span className="meeting-detail-label">Department</span>{data.meeting.department || 'Bukoba Municipal Council'}</div>
+            <div><span className="meeting-detail-label">Meeting type</span>{data.meeting.meeting_type || 'internal'}</div>
+            <div><span className="meeting-detail-label">Priority</span>{data.meeting.priority || 'normal'}</div>
+            {data.meeting.map_link && <a className="meeting-link" href={data.meeting.map_link} target="_blank" rel="noreferrer">Open location map</a>}
+            {data.meeting.virtual_link && <a className="meeting-link" href={data.meeting.virtual_link} target="_blank" rel="noreferrer">Open virtual meeting link</a>}
           </div>
           
           <div className="attendance-feedback">
@@ -1893,6 +1932,12 @@ function Attendance({ lang, setLang }) {
                   <strong>{message || text.attendanceRecorded}</strong>
                   <p>{text.checkedInto}</p>
                 </div>
+              </div>
+            ) : data.meeting.meeting_type === 'virtual' ? (
+              <div className="virtual-meeting-panel">
+                <strong>{text.virtualMeeting}</strong>
+                <p>{text.virtualAttendanceNote}</p>
+                {data.meeting.virtual_link && <a className="primary full" href={data.meeting.virtual_link} target="_blank" rel="noreferrer">{text.joinVirtual}</a>}
               </div>
             ) : !data.check_in_open ? (
               <div className="notice-banner">

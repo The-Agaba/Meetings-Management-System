@@ -24,7 +24,7 @@ This SRS defines testable requirements for a PWA that replaces manual meeting co
 
 ### 1.2 Scope
 
-The product covers meeting lifecycle, guests, invitations, RSVP, reporting, roles, audit, bilingual UI, registration verification, and physical-presence attendance. Participants use a Personal Sign-In Link without login. Leave processing remains in the official HR channel.
+The product covers physical and virtual meeting lifecycle, guests, invitations, RSVP, reporting, roles, audit, bilingual UI, registration verification, and physical-presence attendance. Virtual meetings require an online meeting URL and distribute it through invitations. Participants use a Personal Sign-In Link without login for physical attendance. Leave processing remains in the official HR channel.
 
 ### 1.3 Definitions
 
@@ -107,7 +107,7 @@ WhatsApp uses the Meta Cloud API with approved templates and an access token in 
 | Invitation | id, meeting_id, guest_id, token_hash, delivery_status, sent_at | one per guest per meeting |
 | RSVPResponse | id, invitation_id, status, reason, language, responded_at | zero or one per invitation |
 | QRSession | meeting_id, session_token_hash, issued_at, expires_at | rotating Session QR Code |
-| AttendanceRecord | meeting_id, participant_id, personal_token_hash, signed_in_at, used | physical-presence attendance |
+| AttendanceRecord | meeting_id, participant_id, personal_token_hash, signed_in_at, used | physical-presence attendance; virtual meetings use the meeting URL instead of QR check-in |
 | AuditLogEntry | id, user_id, action, entity, entity_id, detail, created_at | immutable operational trail |
 
 ## 7. Use Cases

@@ -29,7 +29,7 @@ public class WhatsAppCloudService {
         return whatsappEnabled;
     }
 
-    public Map<String, Object> sendTemplate(String to, String phoneNumberId, String templateName, String languageCode, List<String> bodyParams) {
+    public Map<String, Object> sendTemplate(String to, String phoneNumberId, String templateName, String languageCode, List<String> bodyParams, List<String> buttonUrlParams) {
         if (!whatsappEnabled) {
             return Map.of("sent", false, "reason", "disabled");
         }
@@ -43,15 +43,29 @@ public class WhatsAppCloudService {
         template.put("name", templateName);
         template.put("language", Map.of("code", languageCode));
 
-        if (!"hello_world".equalsIgnoreCase(templateName) && bodyParams != null && !bodyParams.isEmpty()) {
+        if (bodyParams != null && !bodyParams.isEmpty()) {
+            List<Map<String, Object>> components = new java.util.ArrayList<>();
             List<Map<String, Object>> parameters = bodyParams.stream()
                 .map(p -> (Map<String, Object>) Map.<String, Object>of("type", "text", "text", truncate(p, 1024)))
                 .toList();
                 
-            template.put("components", List.of(Map.of(
+            components.add(Map.of(
                 "type", "body",
                 "parameters", parameters
-            )));
+            ));
+
+            if (buttonUrlParams != null && !buttonUrlParams.isEmpty()) {
+                List<Map<String, Object>> btnParams = buttonUrlParams.stream()
+                    .map(p -> (Map<String, Object>) Map.<String, Object>of("type", "text", "text", truncate(p, 1024)))
+                    .toList();
+                components.add(Map.of(
+                    "type", "button",
+                    "sub_type", "url",
+                    "index", "0",
+                    "parameters", btnParams
+                ));
+            }
+            template.put("components", components);
         }
 
         Map<String, Object> payload = Map.of(

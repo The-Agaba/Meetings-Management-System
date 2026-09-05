@@ -32,6 +32,7 @@ bmc:
   whatsapp-enabled: ${WHATSAPP_ENABLED:false}
   whatsapp-use-templates: ${WHATSAPP_USE_TEMPLATES:true}
   whatsapp-template-name: ${WHATSAPP_TEMPLATE_NAME:hello_world}
+  whatsapp-template-name-meeting: ${WHATSAPP_TEMPLATE_NAME_MEETING:bmc_meetings}
   whatsapp-template-language: ${WHATSAPP_TEMPLATE_LANGUAGE:en_US}
   whatsapp-template-parameter-count: ${WHATSAPP_TEMPLATE_PARAMETER_COUNT:0}
   whatsapp-api-url: ${WHATSAPP_API_URL:https://graph.facebook.com/v21.0}

@@ -35,6 +35,9 @@ public class EmailTemplateService {
     }
 
     public String meetingInvitation(Guest guest, Meeting meeting, String organizerName, String checkInLink, String rsvpLink) {
+        if ("virtual".equalsIgnoreCase(meeting.meetingType)) {
+            return virtualMeetingInvitation(guest, meeting, organizerName, rsvpLink);
+        }
         return layout(
             "#1B5E20",
             "Meeting invitation",
@@ -115,6 +118,9 @@ public class EmailTemplateService {
     }
 
     public String meetingInvitationPlain(Guest guest, Meeting meeting, String organizerName, String checkInLink, String rsvpLink) {
+        if ("virtual".equalsIgnoreCase(meeting.meetingType)) {
+            return virtualMeetingInvitationPlain(guest, meeting, organizerName, rsvpLink);
+        }
         return """
             You're Invited to a Meeting
 
@@ -150,6 +156,47 @@ public class EmailTemplateService {
             rsvpLink,
             organizerName,
             meeting.reference
+        ).trim();
+    }
+
+    private String virtualMeetingInvitation(Guest guest, Meeting meeting, String organizerName, String rsvpLink) {
+        return layout(
+            "#418fde",
+            "Virtual meeting invitation",
+            "You're invited online",
+            """
+            <p style="margin:0 0 20px;font-size:16px;color:#374151;line-height:1.6;">Hello <strong>%s</strong>,</p>
+            <p style="margin:0 0 24px;font-size:15px;color:#6b7280;line-height:1.7;">
+              You have been invited to join this online meeting organised by <strong>%s</strong> through the Bukoba Municipal Council meeting system.
+            </p>
+            %s
+            %s
+            <p style="margin:0 0 20px;font-size:13px;color:#6b7280;line-height:1.6;">
+              Please join using the button above at the scheduled time. You may submit your attendance response using the RSVP link below.
+            </p>
+            <a href="%s" style="display:inline-block;padding:11px 20px;background:#eef2ff;color:#1e3a5f;text-decoration:none;font-size:14px;font-weight:700;border-radius:8px;">Respond to invitation</a>
+            """.formatted(escape(guest.name), escape(organizerName), meetingDetails(meeting), ctaButton("Join virtual meeting", meeting.virtualLink), escapeAttr(rsvpLink))
+        );
+    }
+
+    private String virtualMeetingInvitationPlain(Guest guest, Meeting meeting, String organizerName, String rsvpLink) {
+        return """
+            You're Invited to an Online Meeting
+
+            Hello %s,
+
+            You have been invited to join "%s", organised by %s.
+            Date: %s
+            Time: %s – %s
+            Meeting link: %s
+
+            RSVP: %s
+            Reference: %s
+            Bukoba Municipal Council
+            """.formatted(
+            guest.name, meeting.title, organizerName,
+            meeting.startAt.format(DATE), meeting.startAt.format(TIME), meeting.endAt.format(TIME),
+            meeting.virtualLink, rsvpLink, meeting.reference
         ).trim();
     }
 

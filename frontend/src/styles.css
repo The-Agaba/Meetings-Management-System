@@ -133,6 +133,16 @@ form label select{border:1px solid #ccd8cf;border-radius:6px;padding:11px 12px;b
   .mobile-nav-link{min-height:44px;padding:4px}
 }
 
+/* Attendance invitation details */
+.rsvp-event div span:not(.meeting-detail-label){display:grid;gap:2px}
+.rsvp-event div strong,.meeting-detail-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.meeting-reference{font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--green);text-transform:uppercase}
+.meeting-purpose{font-weight:700!important;color:var(--ink)!important;line-height:1.5}
+.meeting-link{display:block;color:var(--green);font-size:13px;font-weight:700;margin-top:10px}
+.virtual-meeting-panel{margin-top:20px;padding:18px;background:#eef5ff;border:1px solid #c8dbf5;border-left:4px solid var(--sky);border-radius:8px;color:#1e3a5f}
+.virtual-meeting-panel strong{display:block;font-size:15px;margin-bottom:6px}
+.virtual-meeting-panel p{margin:0 0 14px;font-size:13px;line-height:1.5;color:#526b85}
+
 /* ── QR Scanner UI ──────────────────────────────────────── */
 .attendance-feedback {
   margin-top: 24px;
