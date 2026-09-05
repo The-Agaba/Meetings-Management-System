@@ -41,8 +41,15 @@ function csvValue(value) {
 }
 
 function downloadCsv(rows, columns, filename) {
-  const csv = [columns.map(column => csvValue(column.label)).join(','), ...rows.map(row => columns.map(column => csvValue(row[column.key])).join(','))].join('\n');
+  const csv = '\uFEFF' + [columns.map(column => csvValue(column.label)).join(','), ...rows.map(row => columns.map(column => csvValue(row[column.key])).join(','))].join('\r\n');
   downloadText(csv, filename, 'text/csv;charset=utf-8');
+}
+
+function messageStatusExportRows(logs) {
+  return logs.flatMap(log => [
+    { recipient: log.guest, channel: 'Email', address: log.email, status: log.email_status, details: log.email_error, sent_at: log.sent_at ? new Date(log.sent_at).toLocaleString() : 'Pending' },
+    { recipient: log.guest, channel: 'WhatsApp', address: log.phone, status: log.whatsapp_status, details: log.whatsapp_error, sent_at: log.sent_at ? new Date(log.sent_at).toLocaleString() : 'Pending' }
+  ]).filter(row => row.address || row.status !== 'PENDING');
 }
 
 function normalizeTanzaniaPhone(value) {
@@ -446,13 +453,16 @@ function CsvImport({ meetingId, onDone, lang }) {
 
 /* ── Meeting Detail Modal ───────────────────────────────── */
 
-function DetailModal({ meetingId, t, lang, onClose }) {
+function DetailModal({ meetingId, t, lang, onClose, onOpenDeliveryLogs }) {
   const toast = useToast();
   const text = uiText(lang);
   const [m, setM] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [guestForm, setGuestForm] = useState({ name: '', phone: '', email: '', organization: '', role_title: '' });
   const [sendLoading, setSendLoading] = useState(false);
+  const [sendChannel, setSendChannel] = useState('');
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [sendComplete, setSendComplete] = useState(false);
   const [editing, setEditing] = useState(false);
   const [showNotify, setShowNotify] = useState(false);
   const [notifyNote, setNotifyNote] = useState('');
@@ -513,15 +523,29 @@ function DetailModal({ meetingId, t, lang, onClose }) {
   };
 
   const sendInvites = async () => {
+    if (!sendChannel) return;
     setSendLoading(true);
     try {
-      await api(`/api/meetings/${meetingId}/send-invites`, { method: 'POST' });
+      await api(`/api/meetings/${meetingId}/send-invites-selected`, {
+        method: 'POST',
+        body: JSON.stringify({ channel: sendChannel })
+      });
       await refresh();
-      toast('Invitations sent successfully.', 'success');
+      setSendComplete(true);
+      toast('Invitations queued successfully.', 'success');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
       setSendLoading(false);
+    }
+  };
+
+  const downloadSupportingDocument = async (guest) => {
+    try {
+      await downloadBlob(`/api/meetings/${meetingId}/guests/${guest.id}/supporting-document`, `${m.reference}-${guest.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-document.pdf`, localStorage.token);
+      toast('Supporting document downloaded.', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
     }
   };
 
@@ -645,7 +669,7 @@ function DetailModal({ meetingId, t, lang, onClose }) {
         </div>
 
         <div className="detail-meta">
-          <span><CalendarDays size={16} />{new Date(m.start_at).toLocaleString()} – {new Date(m.end_at).toLocaleTimeString()}</span>
+          <span><CalendarDays size={16} />{new Date(m.start_at).toLocaleString()} – {new Date(m.end_at).toLocaleString()}</span>
           <span><MapPin size={16} />{m.location || text.councilVenue}</span>
           <span className={`badge ${isCancelled ? 'red' : m.status === 'published' ? 'green' : 'gold'}`}>{m.status}</span>
         </div>
@@ -679,6 +703,11 @@ function DetailModal({ meetingId, t, lang, onClose }) {
         </div>
 
         <div className="modal-actions report-actions">
+          {canManage && (
+            <button className="secondary" onClick={() => onOpenDeliveryLogs?.(meetingId, 'all')}>
+              <MessageCircle size={16} /> Message status
+            </button>
+          )}
           <button className="secondary" onClick={() => downloadReport('csv')}>
             <Download size={16} />{text.csvReport}
           </button>
@@ -701,12 +730,54 @@ function DetailModal({ meetingId, t, lang, onClose }) {
             </button>
           )}
           {canManage && (
-            <button className="primary" onClick={sendInvites} disabled={sendLoading}>
-              {sendLoading ? <Loader2 size={16} className="spinner" /> : <Send size={16} />}
-              {t.send}
+            <button className="primary" onClick={() => { setSendChannel(''); setShowSendModal(true); }} disabled={sendLoading}>
+              <Send size={16} /> {t.send}
             </button>
           )}
         </div>
+
+        {showSendModal && (
+          <div className="modal-backdrop" role="presentation">
+            <section className="modal" role="dialog" aria-modal="true" aria-labelledby="invitation-channel-title">
+              <div className="modal-head">
+                <div>
+                  <div className="eyebrow green">{text.invitationChannelTitle}</div>
+                  <h2 id="invitation-channel-title">{text.invitationChannelTitle}</h2>
+                </div>
+                <button className="icon-button" onClick={() => setShowSendModal(false)} aria-label={lang === 'sw' ? 'Funga' : 'Close'}><X /></button>
+              </div>
+              {!sendComplete ? <>
+              <p className="muted">{text.invitationChannelPrompt}</p>
+              <div style={{ display: 'grid', gap: 10, margin: '18px 0' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer' }}>
+                  <input type="radio" name="invitation-channel" value="whatsapp" checked={sendChannel === 'whatsapp'} onChange={e => setSendChannel(e.target.value)} />
+                  <MessageCircle size={18} /> {text.sendViaWhatsApp}
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer' }}>
+                  <input type="radio" name="invitation-channel" value="email" checked={sendChannel === 'email'} onChange={e => setSendChannel(e.target.value)} />
+                  <Send size={18} /> {text.sendViaEmail}
+                </label>
+              </div>
+              <div className="modal-actions">
+                <button className="secondary" onClick={() => setShowSendModal(false)}>{text.cancel}</button>
+                <button className="primary" onClick={sendInvites} disabled={!sendChannel || sendLoading}>
+                  {sendLoading ? <Loader2 size={16} className="spinner" /> : <Send size={16} />}
+                  {text.confirmSend}
+                </button>
+              </div>
+              <button className="text-button invitation-status-link" onClick={() => { setShowSendModal(false); onOpenDeliveryLogs?.(meetingId, sendChannel || 'all'); }}>
+                <MessageCircle size={14} /> {text.monitorMessageStatus}
+              </button>
+              </> : <>
+                <p className="success">Invitations were queued. You can monitor pending and failed messages separately.</p>
+                <div className="modal-actions">
+                  <button className="secondary" onClick={() => setShowSendModal(false)}>{text.close}</button>
+                  <button className="primary" onClick={() => { setShowSendModal(false); onOpenDeliveryLogs?.(meetingId, sendChannel); }}><MessageCircle size={16} /> View message status</button>
+                </div>
+              </>}
+            </section>
+          </div>
+        )}
 
         {/* Guest list */}
         {m.guests.length > 0 && (
@@ -736,6 +807,7 @@ function DetailModal({ meetingId, t, lang, onClose }) {
                     WA: {g.whatsapp_status.toLowerCase()}
                   </span>
                 )}
+                {g.supporting_document && canManage && <button className="icon-button" title="Download supporting document" onClick={() => downloadSupportingDocument(g)}><Download size={15} /></button>}
               </div>
             ))}
           </div>
@@ -776,7 +848,7 @@ function DetailModal({ meetingId, t, lang, onClose }) {
 
 /* ── Dashboard / Meetings Page ──────────────────────────── */
 
-function Dashboard({ lang, user, view = 'dashboard' }) {
+function Dashboard({ lang, user, view = 'dashboard', onOpenDeliveryLogs }) {
   const t = copy[lang];
   const text = uiText(lang);
   const toast = useToast();
@@ -854,8 +926,78 @@ function Dashboard({ lang, user, view = 'dashboard' }) {
       )}
 
       {show && <MeetingModal lang={lang} t={t} onClose={() => setShow(false)} onSaved={() => { setShow(false); refresh(); }} />}
-      {selected && <DetailModal meetingId={selected} t={t} lang={lang} onClose={() => setSelected(null)} />}
+      {selected && <DetailModal meetingId={selected} t={t} lang={lang} onClose={() => setSelected(null)} onOpenDeliveryLogs={onOpenDeliveryLogs} />}
     </>
+  );
+}
+
+function MessageStatusPage({ lang, meetingId, channel, onBack }) {
+  const toast = useToast();
+  const [logs, setLogs] = useState([]);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const text = uiText(lang);
+
+  const refresh = () => api(`/api/meetings/${meetingId}/delivery-logs?channel=all`).then(nextLogs => {
+    setLogs(previous => JSON.stringify(previous) === JSON.stringify(nextLogs) ? previous : nextLogs);
+  }).catch(err => toast(err.message, 'error'));
+  useEffect(() => {
+    refresh();
+    const timer = setInterval(refresh, 3000);
+    return () => clearInterval(timer);
+  }, [meetingId, channel]);
+
+  const getStatus = log => {
+    const statuses = [log.email_status, log.whatsapp_status].filter(Boolean);
+    if (statuses.includes('FAILED')) return 'failed';
+    if (statuses.includes('PENDING')) return 'pending';
+    if (statuses.includes('READ')) return 'read';
+    if (statuses.includes('DELIVERED')) return 'delivered';
+    return 'sent';
+  };
+  const visibleLogs = statusFilter === 'all' ? logs : logs.filter(log => getStatus(log) === statusFilter);
+  const counts = logs.reduce((result, log) => { result[getStatus(log)] += 1; return result; }, { all: logs.length, sent: 0, delivered: 0, read: 0, pending: 0, failed: 0 });
+
+  return (
+    <section className="message-status-page">
+      <button className="text-button" onClick={onBack}><ChevronRight size={15} style={{ transform: 'rotate(180deg)' }} /> {text.meetings}</button>
+      <div className="message-status-head">
+        <div>
+          <div className="eyebrow green">MESSAGE STATUS</div>
+          <h1>Message status</h1>
+          <p className="muted">Showing all email and WhatsApp delivery statuses. This page refreshes automatically.</p>
+        </div>
+        <button className="secondary message-status-download" onClick={() => downloadCsv(messageStatusExportRows(logs), [
+          { key: 'recipient', label: 'Recipient' }, { key: 'channel', label: 'Channel' }, { key: 'address', label: 'Email or WhatsApp' },
+          { key: 'status', label: 'Status' }, { key: 'details', label: 'Details' }, { key: 'sent_at', label: 'Sent at' }
+        ], `message-status-${meetingId}.csv`)} disabled={!logs.length}><Download size={15} /> Save CSV</button>
+      </div>
+      <div className="message-status-summary">
+        {['all', 'sent', 'delivered', 'read', 'pending', 'failed'].map(status => (
+          <button key={status} className={`status-summary ${statusFilter === status ? 'active' : ''} ${status === 'failed' ? 'danger' : ''}`} onClick={() => setStatusFilter(status)}>
+            <span>{status}</span><strong>{counts[status]}</strong>
+          </button>
+        ))}
+      </div>
+      <div className="message-status-toolbar">
+        <span className="muted">{visibleLogs.length} record{visibleLogs.length === 1 ? '' : 's'}</span>
+        <button className="text-button" onClick={refresh}><RefreshCw size={14} /> Refresh now</button>
+      </div>
+      <div className="message-status-table">
+        <table>
+          <thead><tr><th>Guest</th><th>Email</th><th>WhatsApp</th><th>Time</th></tr></thead>
+          <tbody>
+            {visibleLogs.length === 0 ? <tr><td colSpan={4} className="muted">No message statuses recorded yet.</td></tr> : visibleLogs.map((log, index) => (
+              <tr key={`${log.guest}-${index}`}>
+                <td><strong>{log.guest}</strong><small>{log.phone || log.email}</small></td>
+                <td><span className={`badge ${log.email_status === 'SENT' ? 'green' : log.email_status === 'FAILED' ? 'red' : 'gold'}`} title={log.email_error}>{log.email_status}</span></td>
+                <td><span className={`badge ${['SENT', 'DELIVERED', 'READ'].includes(log.whatsapp_status) ? 'green' : log.whatsapp_status === 'FAILED' ? 'red' : 'gold'}`} title={log.whatsapp_error}>{log.whatsapp_status}</span></td>
+                <td>{log.sent_at ? new Date(log.sent_at).toLocaleString() : 'Pending'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -1808,6 +1950,7 @@ export default function App() {
   const [adminView, setAdminView] = useState(false);
   const [focusWhatsApp, setFocusWhatsApp] = useState(false);
   const [showWhatsAppNotice, setShowWhatsAppNotice] = useState(false);
+  const [messageStatus, setMessageStatus] = useState(null);
   const [view, setView] = useState('dashboard');
   const toast = useToast();
 
@@ -1863,6 +2006,7 @@ export default function App() {
     history.replaceState(null, '', '/');
     setAccount(false);
     setFocusWhatsApp(false);
+    setMessageStatus(null);
     setView('dashboard');
     toast('You have been signed out.', 'info');
     setUser(null);
@@ -1909,15 +2053,17 @@ export default function App() {
       lang={lang} setLang={setLang} user={current}
       onLogout={handleLogout}
       view={adminView ? 'admin' : account ? 'account' : view}
-      onNavigate={next => { setAccount(false); setFocusWhatsApp(false); setAdminView(false); setView(next); }}
+      onNavigate={next => { setAccount(false); setFocusWhatsApp(false); setMessageStatus(null); setAdminView(false); setView(next); }}
       onAccount={() => { setAccount(true); setFocusWhatsApp(false); setAdminView(false); setView('dashboard'); }}
       onAdmin={() => { setAdminView(true); setAccount(false); setView('dashboard'); }}
     >
       {adminView
         ? <AdminPanel user={current} lang={lang} />
+        : messageStatus
+          ? <MessageStatusPage lang={lang} meetingId={messageStatus.meetingId} channel={messageStatus.channel} onBack={() => setMessageStatus(null)} />
         : account
           ? <Account lang={lang} user={current} focusWhatsApp={focusWhatsApp} onBack={() => { setAccount(false); setFocusWhatsApp(false); }} onUpdated={email => setUser(prev => ({ ...(prev || current), email }))} />
-          : <Dashboard lang={lang} user={current} view={view} />
+          : <Dashboard lang={lang} user={current} view={view} onOpenDeliveryLogs={(meetingId, channel) => setMessageStatus({ meetingId, channel })} />
       }
     </Shell>
     </>

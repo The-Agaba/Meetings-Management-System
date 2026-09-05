@@ -120,7 +120,18 @@ backend/       Spring Boot API, persistence, security, reports, integrations
 frontend/      React/Vite PWA, staff dashboard, RSVP, attendance pages
 docs/          API, requirements, deployment, QA, manuals, and handover
 templates/     Guest import and notification templates
+screenshots/   Optional screenshots used in this README and project documentation
 ```
+
+## Screenshots
+
+Add project images to `screenshots/` using descriptive filenames, then reference them in Markdown:
+
+```markdown
+![Meeting details](screenshots/meeting-details.png)
+```
+
+Keep screenshots free of real participant contact details, access tokens, and private meeting data.
 
 ## Documentation guide
 

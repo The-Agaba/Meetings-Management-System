@@ -22,23 +22,27 @@ public class InvitationAsyncService {
     private final String defaultPhoneNumberId;
     private final String templateName;
     private final String templateLanguage;
+    private final int templateParameterCount;
 
     public InvitationAsyncService(
             WhatsAppCloudService whatsappService,
             InvitationRepository invitationRepo,
             @Value("${bmc.whatsapp-default-phone-id:}") String defaultPhoneNumberId,
-            @Value("${bmc.whatsapp-template-name:meeting_invitation}") String templateName,
-            @Value("${bmc.whatsapp-template-language:en_US}") String templateLanguage) {
+            @Value("${bmc.whatsapp-template-name:hello_world}") String templateName,
+            @Value("${bmc.whatsapp-template-language:en_US}") String templateLanguage,
+            @Value("${bmc.whatsapp-template-parameter-count:0}") int templateParameterCount) {
         this.whatsappService = whatsappService;
         this.invitationRepo = invitationRepo;
         this.defaultPhoneNumberId = defaultPhoneNumberId;
         this.templateName = templateName;
         this.templateLanguage = templateLanguage;
+        this.templateParameterCount = templateParameterCount;
     }
 
     @Async("whatsappTaskExecutor")
     public void sendWhatsAppInvitationsAsync(Meeting meeting, User sender, List<Map<String, Object>> invitationData) {
         if (!whatsappService.isEnabled()) {
+            markFailed(invitationData, "WhatsApp is disabled or not configured");
             return;
         }
 
@@ -50,6 +54,7 @@ public class InvitationAsyncService {
 
         if (phoneNumberId == null || phoneNumberId.isBlank()) {
             System.err.println("No WhatsApp Phone Number ID available to send invitations.");
+            markFailed(invitationData, "No WhatsApp phone number ID is configured");
             return;
         }
 
@@ -64,13 +69,15 @@ public class InvitationAsyncService {
 
             String rsvpLink = baseUrl + "/rsvp.html?token=" + rawToken; 
             
-            // Expected Template Params: {{1}} Title, {{2}} Start Time, {{3}} Location, {{4}} RSVP Link
-            List<String> params = List.of(
+                List<String> availableParams = List.of(
                     meeting.title,
-                    meeting.startAt.toString(),
+                    meeting.reference,
+                    meeting.startAt.toLocalDate().toString(),
                     Objects.toString(meeting.location, "Virtual"),
                     rsvpLink
             );
+                int parameterCount = Math.max(0, Math.min(templateParameterCount, availableParams.size()));
+                List<String> params = availableParams.subList(0, parameterCount);
 
             Map<String, Object> result = whatsappService.sendTemplate(
                     inv.guest.phone,
@@ -105,6 +112,15 @@ public class InvitationAsyncService {
                 Thread.currentThread().interrupt();
                 break;
             }
+        }
+    }
+
+    private void markFailed(List<Map<String, Object>> invitationData, String reason) {
+        for (Map<String, Object> data : invitationData) {
+            Invitation invitation = (Invitation) data.get("invitation");
+            invitation.whatsappStatus = "FAILED";
+            invitation.whatsappError = reason;
+            invitationRepo.save(invitation);
         }
     }
 }

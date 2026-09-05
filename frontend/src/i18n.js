@@ -27,6 +27,7 @@ const en = {
   offline: 'You are offline. Cached pages are available; sign-in and live updates need a connection.', dismiss: 'Dismiss',
   connectWhatsApp: 'Connect your WhatsApp Business number to send meeting invitations from your own number.', connect: 'Connect WhatsApp', useDefault: 'Use default number',
   useMyWhatsApp: 'Use my WhatsApp', whatsappComingTitle: 'Personal WhatsApp Business number', whatsappComingMessage: 'This feature will be available in a future update. For now, meeting invitations use the system default WhatsApp Business number.', close: 'Close'
+  ,invitationChannelTitle: 'Send invitations', invitationChannelPrompt: 'Choose how you want to send invitations to the guests.', sendViaWhatsApp: 'Send via WhatsApp', sendViaEmail: 'Send via email', confirmSend: 'Send invitations', monitorMessageStatus: 'Monitor message status'
 };
 
 const sw = {
@@ -58,6 +59,7 @@ const sw = {
   offline: 'Huna intaneti. Kurasa zilizohifadhiwa zinapatikana; kuingia na masasisho ya moja kwa moja kunahitaji muunganisho.', dismiss: 'Funga',
   connectWhatsApp: 'Unganisha namba yako ya WhatsApp Business ili kutuma mialiko ya mikutano kutoka kwenye namba yako.', connect: 'Unganisha WhatsApp', useDefault: 'Tumia namba ya mfumo',
   useMyWhatsApp: 'Tumia WhatsApp yangu', whatsappComingTitle: 'Namba binafsi ya WhatsApp Business', whatsappComingMessage: 'Kipengele hiki kitapatikana katika sasisho lijalo. Kwa sasa, mialiko ya mikutano inatumia namba ya WhatsApp Business ya mfumo.', close: 'Funga'
+  ,invitationChannelTitle: 'Tuma mialiko', invitationChannelPrompt: 'Chagua jinsi unavyotaka kutuma mialiko kwa wageni.', sendViaWhatsApp: 'Tuma kwa WhatsApp', sendViaEmail: 'Tuma kwa barua pepe', confirmSend: 'Tuma mialiko', monitorMessageStatus: 'Fuatilia hali ya ujumbe'
 };
 
 export const uiText = lang => lang === 'sw' ? sw : en;

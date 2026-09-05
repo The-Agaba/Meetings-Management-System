@@ -43,7 +43,7 @@ public class WhatsAppCloudService {
         template.put("name", templateName);
         template.put("language", Map.of("code", languageCode));
 
-        if (bodyParams != null && !bodyParams.isEmpty()) {
+        if (!"hello_world".equalsIgnoreCase(templateName) && bodyParams != null && !bodyParams.isEmpty()) {
             List<Map<String, Object>> parameters = bodyParams.stream()
                 .map(p -> (Map<String, Object>) Map.<String, Object>of("type", "text", "text", truncate(p, 1024)))
                 .toList();

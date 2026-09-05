@@ -41,6 +41,9 @@ Errors return JSON: `{ "error": "...", "message": "...", "status": 401 }`.
 | POST | `/meetings/{id}/guests` | Add guest | Bearer |
 | POST | `/meetings/{id}/guests/import` | Import CSV or XLSX (`file` multipart) | Bearer |
 | POST | `/meetings/{id}/send-invites` | Send invitations | Bearer |
+| POST | `/meetings/{id}/send-invites-selected` | Send `email`, `whatsapp`, or `both` invitations | Bearer (owner/admin) |
+| GET | `/meetings/{id}/delivery-logs` | Live email and WhatsApp delivery statuses | Bearer (owner/admin) |
+| GET | `/meetings/{meetingId}/guests/{guestId}/supporting-document` | Download a participant supporting document | Bearer (owner/admin) |
 | POST | `/meetings/{id}/notify-reschedule` | Notify guests of schedule change `{message?}` | Bearer (owner) |
 | POST | `/meetings/{id}/cancel` | Cancel meeting and notify guests `{reason}` | Bearer (owner) |
 | GET | `/meetings/{id}/attendance/qr` | Session attendance QR | Bearer |
