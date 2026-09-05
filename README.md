@@ -108,8 +108,11 @@ WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
 WHATSAPP_ACCESS_TOKEN=your_access_token
 WHATSAPP_USE_TEMPLATES=true
 WHATSAPP_TEMPLATE_NAME=hello_world
+WHATSAPP_TEMPLATE_NAME_MEETING=bmc_meetings
 WHATSAPP_TEMPLATE_LANGUAGE=en_US
 ```
+
+The general template is used by the integration test and registration/login verification messages. Meeting invitations use `WHATSAPP_TEMPLATE_NAME_MEETING`; that template must be approved in Meta with the body variables and dynamic link button expected by the application.
 
 See [docs/whatsapp-test-setup.md](docs/whatsapp-test-setup.md) for Meta test recipients, templates, phone formatting, and production notes.
 
@@ -125,13 +128,22 @@ screenshots/   Optional screenshots used in this README and project documentatio
 
 ## Screenshots
 
-Add project images to `screenshots/` using descriptive filenames, then reference them in Markdown:
+The following screenshots show the current product baseline. They are provided for proposal review and system orientation. Any production submission should replace them with approved, anonymised captures where necessary.
 
-```markdown
-![Meeting details](screenshots/meeting-details.png)
-```
+### Staff dashboard and meeting workflow
 
-Keep screenshots free of real participant contact details, access tokens, and private meeting data.
+![Staff dashboard](screenshots/Screenshot%202026-09-05%20134457.png)
+![Meeting workflow](screenshots/Screenshot%202026-09-05%20134512.png)
+![Meeting details](screenshots/Screenshot%202026-09-05%20134525.png)
+![Administration](screenshots/Screenshot%202026-09-05%20134540.png)
+
+### Participant and WhatsApp workflow
+
+![Participant RSVP or attendance view](screenshots/Screenshot%202026-09-05%20134558.png)
+![WhatsApp message evidence](screenshots/WhatsApp%20Image%202026-09-05%20at%2016.36.31.jpeg)
+![WhatsApp delivery evidence](screenshots/WhatsApp%20Image%202026-09-05%20at%2016.36.32.jpeg)
+
+See the complete annotated gallery in [docs/screenshots.md](docs/screenshots.md). Keep screenshots free of real participant contact details, access tokens, and private meeting data.
 
 ## Documentation guide
 
@@ -140,6 +152,8 @@ Keep screenshots free of real participant contact details, access tokens, and pr
 - [Deployment guide](docs/deployment-guide.md)
 - [Database schema](docs/database-schema.md)
 - [English and Kiswahili user manual](docs/user-manual-en-sw.md)
+- [Proposal and system explanation](docs/proposal.md)
+- [Screenshot gallery](docs/screenshots.md)
 - [Test plan](docs/test-plan.md)
 - [Future ideas and scope notes](docs/proposal.md#future-ideas)
 

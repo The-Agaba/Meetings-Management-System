@@ -486,6 +486,10 @@ function DetailModal({ meetingId, t, lang, onClose, onOpenDeliveryLogs }) {
 
   const refresh = () => api('/api/meetings/' + meetingId).then(setM).catch(err => setLoadError(err.message));
   useEffect(() => { refresh(); }, [meetingId]);
+  useEffect(() => {
+    const timer = setInterval(refresh, 2500);
+    return () => clearInterval(timer);
+  }, [meetingId]);
 
   if (loadError) return (
     <div className="modal-backdrop">
@@ -885,6 +889,10 @@ function Dashboard({ lang, user, view = 'dashboard', onOpenDeliveryLogs }) {
       .finally(() => setLoading(false));
   };
   useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    const timer = setInterval(refresh, 5000);
+    return () => clearInterval(timer);
+  }, []);
 
   const upcoming = meetings.filter(m => !m.past);
   const past = meetings.filter(m => m.past);
@@ -1054,6 +1062,10 @@ function AdminPanel({ user, lang }) {
     ]).finally(() => setLoading(false));
   };
   useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    const timer = setInterval(refresh, 5000);
+    return () => clearInterval(timer);
+  }, []);
 
   /* ── Fetch system logs ── */
   const fetchLogs = async () => {
@@ -1254,55 +1266,23 @@ function AdminPanel({ user, lang }) {
           </div>
         </section>
       ) : tab === 'integrations' ? (
-        <section className="panel">
+        <section className="panel integrations-panel">
           <div className="panel-head">
-            <h2><MessageCircle size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} />Messaging integrations</h2>
+            <div><h2><MessageCircle size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} />WhatsApp integration</h2><p className="muted">Check the connection used for OTPs, tests, and meeting invitations.</p></div>
           </div>
-          <div style={{ padding: '20px 24px' }}>
+          <div className="integration-body">
             {integrations ? (
-              <div className="metric-grid" style={{ marginBottom: 20 }}>
-                <div className="metric">
-                  <div className="metric-icon"><MessageCircle size={18} /></div>
-                  <div>
-                    <span>WhatsApp</span>
-                    <strong>{integrations.configured ? 'Configured' : 'Not configured'}</strong>
-                  </div>
-                </div>
-                <div className="metric">
-                  <div className="metric-icon"><ShieldCheck size={18} /></div>
-                  <div>
-                    <span>Enabled</span>
-                    <strong>{integrations.enabled ? 'Yes' : 'No'}</strong>
-                  </div>
-                </div>
-                <div className="metric">
-                  <div className="metric-icon"><Send size={18} /></div>
-                  <div>
-                    <span>Template</span>
-                    <strong>{integrations.template || 'hello_world'}</strong>
-                  </div>
-                </div>
+              <div className="integration-status-grid">
+                <div className={`integration-status ${integrations.configured ? 'is-good' : 'is-warning'}`}><span className="integration-status-dot" /><div><span>Connection</span><strong>{integrations.configured ? 'Ready to send' : 'Needs setup'}</strong></div></div>
+                <div className="integration-status"><ShieldCheck size={18} /><div><span>Service enabled</span><strong>{integrations.enabled ? 'Yes' : 'No'}</strong></div></div>
+                <div className="integration-status"><Send size={18} /><div><span>Message mode</span><strong>{integrations.use_templates ? 'Approved templates' : 'Text messages'}</strong></div></div>
               </div>
             ) : (
-              <p className="muted">Could not load integration status.</p>
+              <div className="notice notice-cancel">Could not load WhatsApp integration status.</div>
             )}
-            <p className="muted" style={{ marginBottom: 16 }}>
-              Test WhatsApp delivery to a Meta sandbox recipient. Add your number in Meta → WhatsApp → API Setup first.
-            </p>
-            <form className="account-form" onSubmit={testWhatsApp} style={{ maxWidth: 480 }}>
-              <label>Test phone number
-                <input value={waPhone} onChange={e => setWaPhone(e.target.value)} placeholder="07******** or +2557********" required />
-              </label>
-              <label>Optional message
-                <textarea value={waMessage} onChange={e => setWaMessage(e.target.value)} placeholder="BMC Meetings test message" />
-              </label>
-              <button className="primary" disabled={waTesting}>
-                {waTesting ? <Loader2 size={16} className="spinner" /> : <><MessageCircle size={16} /> Send WhatsApp test</>}
-              </button>
-            </form>
-            <p className="muted" style={{ marginTop: 16, fontSize: 12 }}>
-              Guest import template: <a className="template-link" href="/api/templates/guest-import.xlsx" download="guest-list-template.xlsx">Download XLSX</a>
-            </p>
+            {integrations && <div className="integration-details"><div><span>API endpoint</span><strong>{integrations.api_url}</strong></div><div><span>Default sender</span><strong>{integrations.default_sender || 'Not set'}</strong></div><div><span>Phone number ID</span><strong>{integrations.phone_number_id_configured ? 'Configured' : 'Missing'}</strong></div><div><span>Access token</span><strong>{integrations.access_token_configured ? 'Configured' : 'Missing'}</strong></div><div><span>General template</span><strong>{integrations.template || 'hello_world'}</strong></div><div><span>Meeting template</span><strong>{integrations.meeting_template || 'bmc_meetings'}</strong></div><div><span>Language</span><strong>{integrations.template_language || 'en_US'}</strong></div></div>}
+            <div className="integration-setup"><div><h3>What is required?</h3><p>Enable WhatsApp, add the Meta phone number ID and access token, and use approved templates in Meta Business Manager. For sandbox testing, add the recipient under Meta → WhatsApp → API Setup.</p></div><a className="template-link" href="/api/templates/guest-import.xlsx" download="guest-list-template.xlsx">Download guest import template</a></div>
+            <form className="integration-test-form" onSubmit={testWhatsApp}><div><label>Test phone number <span className="field-hint">Optional</span><input value={waPhone} onChange={e => setWaPhone(e.target.value)} placeholder="07******** or +2557********" /></label><label>Test message <span className="field-hint">Optional</span><textarea value={waMessage} onChange={e => setWaMessage(e.target.value)} placeholder="BMC Meetings test message" /></label></div><button className="primary" disabled={waTesting || !integrations?.configured}>{waTesting ? <Loader2 size={16} className="spinner" /> : <><MessageCircle size={16} /> Send test message</>}</button></form>
           </div>
         </section>
       ) : tab === 'audit' ? (
@@ -1631,7 +1611,13 @@ function Rsvp({ lang, setLang }) {
           if (!r.ok) throw Error('This RSVP link is invalid or has expired.');
           return r.json();
         })
-        .then(setData)
+        .then(next => {
+          setData(next);
+          if (next.response?.responded) {
+            setStatus(next.response.status || '');
+            setSubmitted(true);
+          }
+        })
         .catch(() => setData(false));
     }
   }, [token]);
@@ -1710,18 +1696,27 @@ function Rsvp({ lang, setLang }) {
             <div><CalendarDays size={17} /><span><strong>Date</strong>{meetingDate(data.meeting.start_at, lang)}</span></div>
             <div><Clock3 size={17} /><span><strong>Time</strong>{meetingTime(data.meeting.start_at, lang)} – {meetingTime(data.meeting.end_at, lang)}</span></div>
             <div><MapPin size={17} /><span><strong>Location</strong>{data.meeting.location || 'To be confirmed'}</span></div>
-            <div><span className="meeting-detail-label">Department</span>{data.meeting.department || 'Bukoba Municipal Council'}</div>
-            <div><span className="meeting-detail-label">Meeting type</span>{data.meeting.meeting_type || 'internal'}</div>
-            <div><span className="meeting-detail-label">Priority</span>{data.meeting.priority || 'normal'}</div>
+            <div><span className="meeting-detail-label">Department</span><span className="meeting-detail-value">{data.meeting.department || 'Bukoba Municipal Council'}</span></div>
+            <div><span className="meeting-detail-label">Meeting type</span><span className="meeting-detail-value">{data.meeting.meeting_type || 'internal'}</span></div>
+            <div><span className="meeting-detail-label">Priority</span><span className="meeting-detail-value">{data.meeting.priority || 'normal'}</span></div>
             {data.meeting.map_link && <a className="meeting-link" href={data.meeting.map_link} target="_blank" rel="noreferrer">Open location map</a>}
             {data.meeting.virtual_link && <a className="meeting-link" href={data.meeting.virtual_link} target="_blank" rel="noreferrer">Open virtual meeting link</a>}
           </div>
-          <div className="choice-grid">
+          {submitted && (
+            <div className="rsvp-submitted" role="status">
+              <CheckCircle2 size={22} />
+              <div>
+                <strong>{t.responseSaved}</strong>
+                <p>{lang === 'en' ? 'Your response has already been recorded. This invitation cannot be answered again.' : 'Jibu lako tayari limehifadhiwa. Mwaliko huu hauwezi kujibiwa tena.'}</p>
+              </div>
+            </div>
+          )}
+          <div className={`choice-grid ${submitted ? 'is-submitted' : ''}`}>
             {[['confirmed', t.confirm, 'green'], ['tentative', t.tentative, 'gold'], ['declined', t.decline, 'red']].map(([v, l, c]) => (
-              <button key={v} className={`choice ${status === v ? 'selected' : ''} ${c}`} onClick={() => setStatus(v)}>{l}</button>
+              <button key={v} type="button" className={`choice ${status === v ? 'selected' : ''} ${c}`} disabled={submitted} onClick={() => setStatus(v)}>{l}</button>
             ))}
           </div>
-          {status === 'declined' && (
+          {status === 'declined' && !submitted && (
             <>
               <div className="notice notice-amber" style={{ margin: '16px 0', padding: '14px 16px', background: '#fff8e1', borderLeft: '4px solid #F9A825', borderRadius: '8px' }}>
                 <p style={{ margin: '0 0 6px', fontWeight: 700, fontSize: '13px', color: '#92400e', textTransform: 'uppercase', letterSpacing: '1px' }}>
@@ -1763,10 +1758,9 @@ function Rsvp({ lang, setLang }) {
               </label>
             </>
           )}
-          <button className="primary full" disabled={!status || loading || submitted} onClick={submit} style={{ marginTop: 20 }}>
+          {!submitted && <button className="primary full" disabled={!status || loading} onClick={submit} style={{ marginTop: 20 }}>
             {loading ? <Loader2 size={17} className="spinner" /> : <>{t.submit}<ChevronRight size={17} /></>}
-          </button>
-          {submitted && <p className="success">{t.responseSaved}</p>}
+          </button>}
         </section>
       </main>
     </>
@@ -1782,6 +1776,7 @@ function Attendance({ lang, setLang }) {
   const [message, setMessage] = useState('');
   const [scanning, setScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState('idle'); // idle, scanning, success
+  const [cameraPermission, setCameraPermission] = useState('prompt');
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   
@@ -1821,15 +1816,35 @@ function Attendance({ lang, setLang }) {
 
   const start = async () => {
     setError('');
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      setError('Camera access requires HTTPS or localhost. Open this link in a secure browser and try again.');
+      return;
+    }
     try {
+      if (navigator.permissions?.query) {
+        try {
+          const permission = await navigator.permissions.query({ name: 'camera' });
+          setCameraPermission(permission.state);
+          if (permission.state === 'denied') {
+            setError('Camera permission is blocked. Select the camera icon or site settings beside the browser address bar, allow Camera, then try again.');
+            return;
+          }
+        } catch {
+          // Some browsers do not expose camera through Permissions API; getUserMedia still prompts normally.
+        }
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
       streamRef.current = stream;
+      setCameraPermission('granted');
       setScanStatus('scanning');
       setScanning(true);
     } catch (e) {
       setScanning(false);
       setScanStatus('idle');
-      setError('Camera access is required to scan the meeting attendance QR code. Please allow camera permissions.');
+      setCameraPermission(e.name === 'NotAllowedError' ? 'denied' : 'error');
+      setError(e.name === 'NotAllowedError'
+        ? 'Camera permission is required. Allow camera access in the browser prompt, then select Try camera again.'
+        : 'The camera could not be opened. Check that another app is not using it, then try again.');
     }
   };
 
@@ -1906,24 +1921,25 @@ function Attendance({ lang, setLang }) {
     <>
       <Brand lang={lang} setLang={setLang} />
       <main className="rsvp-shell">
-        <section className="rsvp-card">
+        <section className="rsvp-card attendance-card">
           <div className="eyebrow green">{text.checkin}</div>
           <h1>{data.meeting.title}</h1>
           <p className="rsvp-name">{text.welcome}, <strong>{data.participant}</strong></p>
-          
+          <div className="attendance-layout">
+            <div className="attendance-summary">
           <div className="rsvp-event">
             <div className="meeting-reference">{data.meeting.reference}</div>
             <p className="meeting-purpose">{data.meeting.purpose || 'Meeting attendance'}</p>
             <div><CalendarDays size={17} /><span><strong>Date</strong>{meetingDate(data.meeting.start_at, lang)}</span></div>
             <div><Clock3 size={17} /><span><strong>Time</strong>{meetingTime(data.meeting.start_at, lang)} – {meetingTime(data.meeting.end_at, lang)}</span></div>
             <div><MapPin size={17} /><span><strong>Location</strong>{data.meeting.location || 'To be confirmed'}</span></div>
-            <div><span className="meeting-detail-label">Department</span>{data.meeting.department || 'Bukoba Municipal Council'}</div>
-            <div><span className="meeting-detail-label">Meeting type</span>{data.meeting.meeting_type || 'internal'}</div>
-            <div><span className="meeting-detail-label">Priority</span>{data.meeting.priority || 'normal'}</div>
+            <div><span className="meeting-detail-label">Department</span><span className="meeting-detail-value">{data.meeting.department || 'Bukoba Municipal Council'}</span></div>
+            <div><span className="meeting-detail-label">Meeting type</span><span className="meeting-detail-value">{data.meeting.meeting_type || 'internal'}</span></div>
+            <div><span className="meeting-detail-label">Priority</span><span className="meeting-detail-value">{data.meeting.priority || 'normal'}</span></div>
             {data.meeting.map_link && <a className="meeting-link" href={data.meeting.map_link} target="_blank" rel="noreferrer">Open location map</a>}
             {data.meeting.virtual_link && <a className="meeting-link" href={data.meeting.virtual_link} target="_blank" rel="noreferrer">Open virtual meeting link</a>}
           </div>
-          
+            </div>
           <div className="attendance-feedback">
             {data.attended || message ? (
               <div className="success-banner">
@@ -1945,6 +1961,7 @@ function Attendance({ lang, setLang }) {
                 <div>
                   <strong>{text.checkinUnavailable}</strong>
                   <p>{data.message}</p>
+                  {!data.rsvp_allowed && data.message?.startsWith('Please respond') && <a className="primary full" href={`/rsvp.html?token=${encodeURIComponent(token)}`} style={{ marginTop: 14 }}>Respond to RSVP first</a>}
                 </div>
               </div>
             ) : (
@@ -1975,9 +1992,10 @@ function Attendance({ lang, setLang }) {
                   </button>
                 )}
                 
-                {error && <p className="error" style={{ marginTop: 16 }}>{error}</p>}
+                {error && <div className="camera-help" role="alert"><p className="error">{error}</p>{cameraPermission === 'denied' && <button type="button" className="secondary full" onClick={start}>Try camera permission again</button>}</div>}
               </div>
             )}
+          </div>
           </div>
         </section>
       </main>

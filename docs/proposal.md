@@ -24,7 +24,7 @@ Date: 23 August 2026
 
 ## 1. Executive Summary
 
-Bukoba Municipal Council currently coordinates many meetings through phone calls, printed notices, and word of mouth. This creates avoidable missed attendance, inconsistent participant records, and no reliable RSVP trail for management review. The proposed Meeting Management and Notification System will provide one auditable workflow for creating meetings, importing guests, dispatching invitations through WhatsApp and email, collecting Confirm, Decline, or Tentative responses, synchronising the organiser's calendar, and producing official attendance reports.
+Bukoba Municipal Council currently coordinates many meetings through phone calls, printed notices, and word of mouth. This creates avoidable missed attendance, inconsistent participant records, and no reliable RSVP trail for management review. The proposed Meeting Management and Notification System will provide one auditable workflow for creating meetings, importing guests, dispatching invitations through WhatsApp and email, collecting Confirm, Decline, or Tentative responses, and producing official attendance reports.
 
 The system is delivered as a mobile-first Progressive Web App. Organisers and administrators use a secure dashboard. Participants use a low-bandwidth link-based RSVP page without creating an account. WhatsApp is optional, with email as a secondary channel. The current UI supports English and Kiswahili across the main staff and participant workflows.
 
@@ -60,7 +60,22 @@ Delivery will use short, reviewable increments: discovery and confirmation, foun
 
 ## 6. System Overview
 
-The default architecture is a Spring Boot REST backend, responsive PWA frontend, Spring Data JPA with PostgreSQL, signed expiring RSVP tokens, staff session tokens, and provider adapters for Meta WhatsApp Cloud API and SMTP. Production uses PostgreSQL and HTTPS.
+The default architecture is a Spring Boot REST backend, responsive React/Vite PWA frontend, Spring Data JPA with PostgreSQL, hashed invitation tokens, staff session tokens, and provider adapters for Meta WhatsApp Cloud API and SMTP. Production uses PostgreSQL and HTTPS. The system is designed so calendar, SMS, and queue providers can be added in later phases without changing the participant workflow.
+
+### Current system workflow
+
+1. An authorised staff member creates a physical or virtual meeting.
+2. Guests are entered manually or imported from the validated CSV/XLSX template.
+3. The system creates a unique invitation and secure RSVP link for each guest.
+4. The organiser sends by email, WhatsApp, or both. Physical meetings distribute the participant check-in link; virtual meetings distribute the configured online meeting link.
+5. The participant reviews the meeting details and submits one RSVP. A second response is rejected.
+6. For physical meetings, only guests with a Confirmed or Tentative RSVP can open attendance check-in; Declined and unanswered invitations are blocked. They grant camera access and scan the organiser's rotating QR code inside the check-in page.
+7. The server validates the meeting, guest, RSVP, QR expiry, and one-time attendance rule before saving the server timestamp.
+8. Staff views live-refreshing RSVP, delivery, and attendance information and exports official records.
+
+### Current implementation boundary
+
+The working baseline includes email and optional Meta WhatsApp Cloud API delivery, separate general and meeting WhatsApp templates, registration OTP verification, one-time RSVP responses, Confirmed-or-Tentative physical attendance, virtual meeting links, responsive staff and participant screens, audit records, and CSV/PDF reports. Calendar synchronisation, ICS links, SMS fallback, advanced analytics, and queue-based delivery remain future enhancements.
 
 The header of every application page and official report must show both the National Coat of Arms of Tanzania and the Bukoba Municipal Council logo. The repository therefore exposes an official asset location, but authorised high-resolution files must be supplied by the relevant government offices before go-live. No emblem is to be redrawn or approximated.
 
@@ -143,8 +158,12 @@ These items appeared in the original planning material but are not available in 
 
 ### Appendix A: Data flow description
 
-1. Organiser creates and validates a meeting. 2. Guest records are added manually or imported from the template. 3. The system creates one invitation and signed RSVP token per guest. 4. Notification adapters dispatch WhatsApp first and email where configured, recording status. 5. Participant opens the lightweight RSVP page, selects a response, and optionally gives a reason. 6. The backend validates and stores the response and sends a confirmation. 7. Calendar adapters create or update the organiser event and the universal ICS link remains available. 8. Reporting aggregates invitations and responses, applying official header and bilingual report labels.
+1. Organiser creates and validates a meeting. 2. Guest records are added manually or imported from the template. 3. The system creates one invitation and hashed RSVP token per guest. 4. Notification adapters send the selected email and/or WhatsApp channel and record delivery status. 5. Participant opens the lightweight RSVP page, selects one response, and optionally gives a reason. 6. The backend validates and stores the response. 7. For physical meetings, Confirmed and Tentative participants can use the Personal Sign-In Link and rotating Session QR Code, while Declined and unanswered invitations are blocked. 8. Reporting aggregates invitations, responses, delivery, and attendance records, applying official header and bilingual report labels. Calendar adapters and ICS links are planned future integrations.
 
 ### Appendix B: Sample attendance report layout
 
 The report contains council letterhead with both official emblems, meeting reference, title, date, venue, prepared-by field, generation date, KPI cards for invited, confirmed, declined, tentative, no response, and actual check-in where enabled. It includes an RSVP breakdown bar or pie chart, decline reason categories, department summary, and a detailed table with participant, organisation, contact method, response, response time, delivery status, and check-in status.
+
+### Appendix C: Visual evidence
+
+The current interface and WhatsApp evidence are shown in the [screenshot gallery](screenshots.md). The gallery covers staff operations, meeting management, administration, participant flows, and messaging evidence. Screenshots must be anonymised and approved before external circulation.

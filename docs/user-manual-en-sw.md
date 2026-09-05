@@ -22,7 +22,7 @@ Mikutano iliyopita itaendelea kuonekana kwa ajili ya kumbukumbu lakini itakuwa y
 
 ## Participant quick reference
 
-Open the link in WhatsApp or email. Review the meeting. Select Confirm, Decline, or Tentative. If declining, enter a short reason. A leave-related reason only displays a reminder to follow official HR leave procedures. No participant account is required.
+Open the link in WhatsApp or email. Review the meeting. Select Confirm, Decline, or Tentative. Each invitation can be answered only once. If declining, enter a short reason. A leave-related reason only displays a reminder to follow official HR leave procedures. For physical meetings, participants who select Confirm or Tentative can use the attendance check-in link; Declined and unanswered invitations cannot. No participant account is required.
 
 ## Future ideas
 

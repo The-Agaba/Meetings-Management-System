@@ -53,24 +53,18 @@ public class EmailTemplateService {
             %s
             %s
             <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.6;">
-              Check-in opens <strong>30 minutes before</strong> the meeting and closes
-              <strong>30 minutes after</strong> it starts. Please keep your personal link private.
+              Please respond to the invitation first. For physical meetings, participants who select Confirmed or Tentative can sign in; declined responses cannot.
+              Check-in opens <strong>30 minutes before</strong> the meeting and closes <strong>30 minutes after</strong> it starts.
             </p>
-            <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;">
-              <tr>
-                <td style="padding:16px 18px;background:#fff8e1;border-left:4px solid #F9A825;border-radius:8px;">
-                  <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:1px;">Unable to attend?</p>
-                  <p style="margin:0 0 12px;font-size:14px;color:#78350f;line-height:1.6;">If you are unable to attend this meeting, please submit a formal response using the link below. You may also attach a supporting document (e.g. leave form, medical certificate).</p>
-                  <a href="%s" style="display:inline-block;padding:10px 22px;background:#F9A825;color:#1a1a1a;text-decoration:none;font-size:14px;font-weight:700;border-radius:8px;">Submit non-attendance response</a>
-                </td>
-              </tr>
-            </table>
+            %s
+            <p style="margin:18px 0 0;font-size:13px;color:#6b7280;line-height:1.6;">After confirming attendance, use your personal check-in link at the meeting. Please keep this link private.</p>
+            <p style="margin:8px 0 0;font-size:13px;"><a href="%s" style="color:#1B5E20;font-weight:700;">Open personal check-in link</a></p>
             """.formatted(
                 escape(guest.name),
                 escape(organizerName),
                 meetingDetails(meeting),
-                ctaButton("Open check-in link", checkInLink),
-                escapeAttr(rsvpLink)
+                ctaButton("Respond to invitation", rsvpLink),
+                escapeAttr(checkInLink)
             )
         );
     }
@@ -133,13 +127,11 @@ public class EmailTemplateService {
 
             %s
 
-            Your personal check-in link: %s
-            Check-in opens 30 minutes before the meeting and closes 30 minutes after it starts.
-            Please keep this link private.
+            RSVP is required before attendance check-in. Confirm, decline, or mark tentative here: %s
+            For physical meetings, participants who select Confirmed or Tentative can sign in; declined responses cannot.
 
-            Unable to attend?
-            If you cannot attend, please submit your response here: %s
-            You may attach a supporting document (e.g. leave form, medical certificate).
+            Your personal check-in link: %s
+            Check-in opens 30 minutes before the meeting and closes 30 minutes after it starts. Please keep this link private.
 
             Organizer: %s
             Reference: %s
@@ -152,8 +144,8 @@ public class EmailTemplateService {
             meeting.endAt.toLocalTime(),
             Objects.toString(meeting.location, "To be confirmed"),
             Objects.toString(meeting.purpose, ""),
-            checkInLink,
             rsvpLink,
+            checkInLink,
             organizerName,
             meeting.reference
         ).trim();
@@ -172,7 +164,7 @@ public class EmailTemplateService {
             %s
             %s
             <p style="margin:0 0 20px;font-size:13px;color:#6b7280;line-height:1.6;">
-              Please join using the button above at the scheduled time. You may submit your attendance response using the RSVP link below.
+              Please submit your RSVP before the scheduled time. Use the RSVP link below to confirm, decline, or mark tentative; the invitation can only be answered once.
             </p>
             <a href="%s" style="display:inline-block;padding:11px 20px;background:#eef2ff;color:#1e3a5f;text-decoration:none;font-size:14px;font-weight:700;border-radius:8px;">Respond to invitation</a>
             """.formatted(escape(guest.name), escape(organizerName), meetingDetails(meeting), ctaButton("Join virtual meeting", meeting.virtualLink), escapeAttr(rsvpLink))
@@ -190,7 +182,7 @@ public class EmailTemplateService {
             Time: %s – %s
             Meeting link: %s
 
-            RSVP: %s
+            RSVP (required before joining): %s
             Reference: %s
             Bukoba Municipal Council
             """.formatted(

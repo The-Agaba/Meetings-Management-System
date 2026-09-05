@@ -19,7 +19,7 @@ public class NotificationService {
     private final JavaMailSender mail;
     private final EmailTemplateService templates;
     private final String from, whatsappUrl, whatsappToken, phoneNumberId;
-    private final String templateName, templateLanguage;
+    private final String templateName, meetingTemplateName, templateLanguage, defaultSender;
     private final boolean whatsappEnabled, useTemplates;
 
     public NotificationService(
@@ -32,6 +32,8 @@ public class NotificationService {
             @Value("${bmc.whatsapp-enabled:false}") boolean enabled,
             @Value("${WHATSAPP_USE_TEMPLATES:true}") boolean useTemplates,
             @Value("${WHATSAPP_TEMPLATE_NAME:hello_world}") String templateName,
+            @Value("${bmc.whatsapp-template-name-meeting:bmc_meetings}") String meetingTemplateName,
+            @Value("${bmc.default-whatsapp-sender:}") String defaultSender,
             @Value("${WHATSAPP_TEMPLATE_LANGUAGE:en_US}") String templateLanguage) {
         this.mail = mail;
         this.templates = templates;
@@ -42,6 +44,8 @@ public class NotificationService {
         whatsappEnabled = enabled;
         this.useTemplates = useTemplates;
         this.templateName = templateName;
+        this.meetingTemplateName = meetingTemplateName;
+        this.defaultSender = defaultSender;
         this.templateLanguage = templateLanguage;
     }
 
@@ -50,11 +54,16 @@ public class NotificationService {
     }
 
     public Map<String, Object> status() {
-        return Map.of(
+        return Map.ofEntries(
             "enabled", whatsappEnabled,
             "configured", isWhatsAppConfigured(),
+            "api_url", whatsappUrl,
+            "phone_number_id_configured", !phoneNumberId.isBlank(),
+            "access_token_configured", !whatsappToken.isBlank(),
+            "default_sender", defaultSender,
             "use_templates", useTemplates,
             "template", templateName,
+            "meeting_template", meetingTemplateName,
             "template_language", templateLanguage
         );
     }

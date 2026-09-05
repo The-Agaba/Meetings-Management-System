@@ -63,6 +63,9 @@ public class AuthOtpController {
         String emailCode = otpService.issueNumeric(user, "login_email");
         String phoneCode = (whatsappEnabled && user.phone != null && !user.phone.isBlank())
             ? otpService.issueNumeric(user, "login_phone") : "";
+        if ("development".equalsIgnoreCase(appEnv) && !phoneCode.isBlank()) {
+            System.out.println("====== DEV OTP (WhatsApp Login) ======\nWhatsApp OTP: " + phoneCode + "\n=======================================");
+        }
         if (whatsappEnabled && user.phone != null && !user.phone.isBlank()) {
             notifications.whatsappQuiet(user.phone,
                 "Your BMC Meeting System sign-in OTP is " + phoneCode + ". It expires in 10 minutes.");

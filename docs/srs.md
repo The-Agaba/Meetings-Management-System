@@ -62,12 +62,12 @@ Every page, menu, label, button, notification, RSVP page, and report must use re
 | FR-3.1 | Send Invites shall create one invitation per guest and select WhatsApp or email according to available contact. | Must | 3.3 |
 | FR-3.2 | Messages shall include the meeting title, date/time, place, and participant links where supported by the selected channel. | Must | 3.3 |
 | FR-3.3 | The system shall record provider delivery statuses where exposed. | Must | 3.3 |
-| FR-4.1 | A participant shall submit Confirmed, Declined, or Tentative without login. | Must | 3.4 |
+| FR-4.1 | A participant shall submit Confirmed, Declined, or Tentative without login; each invitation shall accept only one response. | Must | 3.4 |
 | FR-4.2 | Registration shall create a pending Organizer and require email OTP verification. WhatsApp OTP verification is additionally required when WhatsApp registration verification is enabled. | Must | 3.4 |
 | FR-4.3 | Each OTP shall be hashed, expire after 10 minutes, be single-use, and enforce resend limits. Pending registrations expire after 24 hours. | Must | 3.4 |
 | FR-5.1 | The Organizer shall see a live Session QR Code only for their own meeting; it shall rotate and expire around the scheduled window. | Must | 3.5 |
 | FR-5.2 | Each invitation shall include a Personal Sign-In Link. The participant page shall request camera access and submit the scanned Session QR Code with that link token. | Must | 3.5 |
-| FR-5.3 | The server shall validate participant, meeting, QR expiry, and one-time use before recording server time as Attended. | Must | 3.5 |
+| FR-5.3 | The server shall validate participant, Confirmed or Tentative RSVP, QR expiry, and one-time use before recording server time as Attended. | Must | 3.5 |
 | FR-4.2 | Decline shall require a short reason. | Must | 3.4 |
 | FR-4.3 | Leave-related absence text shall show an HR procedure notice and shall not create a leave workflow. | Must | 3.4 |
 | FR-4.4 | Responses shall update dashboard counts. | Must | 3.4 |
