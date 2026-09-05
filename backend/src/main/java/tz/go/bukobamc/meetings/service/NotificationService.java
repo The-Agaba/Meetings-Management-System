@@ -54,7 +54,7 @@ public class NotificationService {
     }
 
     public Map<String, Object> status() {
-        return Map.ofEntries(
+        return Map.of(
             "enabled", whatsappEnabled,
             "configured", isWhatsAppConfigured(),
             "api_url", whatsappUrl,
