@@ -56,7 +56,6 @@ public class EmailTemplateService {
               Please respond to the invitation first. For physical meetings, participants who select Confirmed or Tentative can sign in; declined responses cannot.
               Check-in opens <strong>30 minutes before</strong> the meeting and closes <strong>30 minutes after</strong> it starts.
             </p>
-            %s
             <p style="margin:18px 0 0;font-size:13px;color:#6b7280;line-height:1.6;">After confirming attendance, use your personal check-in link at the meeting. Please keep this link private.</p>
             <p style="margin:8px 0 0;font-size:13px;"><a href="%s" style="color:#1B5E20;font-weight:700;">Open personal check-in link</a></p>
             """.formatted(
